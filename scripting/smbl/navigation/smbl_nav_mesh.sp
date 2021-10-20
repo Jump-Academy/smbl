@@ -191,9 +191,9 @@ enum struct _NavNode {
 		vecVertices[0][1] = this.vecVertices[1];
 		vecVertices[0][2] = this.vecVertices[2];
 
-		this.vecBBoxMins[0] = this.vecVertices[0];
-		this.vecBBoxMins[1] = this.vecVertices[1];
-		this.vecBBoxMins[2] = this.vecVertices[2];
+		this.vecBBoxMins[0] = this.vecBBoxMaxs[0] = this.vecVertices[0];
+		this.vecBBoxMins[1] = this.vecBBoxMaxs[1] = this.vecVertices[1];
+		this.vecBBoxMins[2] = this.vecBBoxMaxs[2] = this.vecVertices[2];
 
 		float vecEdgeCenter[3];
 		for (int i=1; i<iVertices; i++) {
