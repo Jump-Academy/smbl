@@ -1,0 +1,2 @@
+# smbl
+SourceMod Bot Library
