@@ -981,7 +981,7 @@ int CountSetBits(int i) {
 
 bool LoadNavFile(char[] sFileName) {
 	char sFilePath[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.tnav", sFileName);
+	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.snav", sFileName);
 	
 	if (g_mNavMesh) {
 		NavMesh.Destroy(g_mNavMesh);
@@ -1044,7 +1044,7 @@ bool LoadNavFile(char[] sFileName) {
 
 bool SaveNavFile(char[] sFileName) {
 	char sFilePath[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.tnav", sFileName);
+	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.snav", sFileName);
 
 	return NavMesh.SaveNavFile(g_mNavMesh, sFilePath);
 }
@@ -1074,7 +1074,7 @@ public Action cmdNavEditLoad(int iClient, int iArgC) {
 		GetCmdArg(1, sFileName, sizeof(sFileName));
 	}
 
-	ReplyToCommand(iClient, "[SMBL] Loading nav mesh from: %s.tnav", sFileName);
+	ReplyToCommand(iClient, "[SMBL] Loading nav mesh from: %s.snav", sFileName);
 	
 	if (!LoadNavFile(sFileName)) {
 		ReplyToCommand(iClient, "[SMBL] Failed.");
@@ -1092,7 +1092,7 @@ public Action cmdNavEditSave(int iClient, int iArgC) {
 		GetCmdArg(1, sFileName, sizeof(sFileName));
 	}
 
-	ReplyToCommand(iClient, "[SMBL] Saving nav mesh to: %s.tnav", sFileName);
+	ReplyToCommand(iClient, "[SMBL] Saving nav mesh to: %s.snav", sFileName);
 
 	if (!SaveNavFile(sFileName)) {
 		ReplyToCommand(iClient, "[SMBL] Failed.");

@@ -214,7 +214,7 @@ void SetupNavMesh() {
 	GetCurrentMap(sMapName, sizeof(sMapName));
 
 	char sFilePath[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.tnav", sMapName);
+	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.snav", sMapName);
 	NavMesh mNavMesh = NavMesh.LoadNavFile(sFilePath);
 	SMBL_RegisterNavMesh("Ground", mNavMesh);
 
