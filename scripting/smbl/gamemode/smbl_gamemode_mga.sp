@@ -14,6 +14,7 @@
 #include <tf2items>
 
 #include <smbl>
+#include <smbl/nav_mesh>
 
 int g_iEntMGABlueSpawn;
 int g_iEntMGARedSpawn;
@@ -43,14 +44,15 @@ public void OnPluginEnd() {
 }
 
 public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "SMBL")) {
+	if (StrEqual(sName, "smbl")) {
 		SetupBots();
+	} else if (StrEqual(sName, "smbl_nav_mesh")) {
 		SetupNavMesh();
 	}
 }
 
 public void OnLibraryRemoved(const char[] sName) {
-	if (StrEqual(sName, "SMBL")) {
+	if (StrEqual(sName, "smbl_nav_mesh")) {
 		g_bNavMeshLoaded = false;
 	}
 }
@@ -66,7 +68,7 @@ public void OnMapStart() {
 	g_iEntMGARedSpawn = FindEntityByName("info_target", "market_garden_red2_01");
 	g_iEntMGABlueSpawn = FindEntityByName("info_target", "market_garden_blue2_01");
 
-	if (LibraryExists("SMBL")) {
+	if (LibraryExists("smbl_nav_mesh")) {
 		SetupNavMesh();
 	}
 }
@@ -80,7 +82,7 @@ public void OnMapEnd() {
 
 public Action Event_PlayerSpawn(Event hEvent, const char[] sName, bool bDontBroadcast) {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
-	if (!SMBL_GetBotClient(iClient)) {
+	if (!SMBL_GetClientBot(iClient)) {
 		return Plugin_Continue;
 	}
 
@@ -104,7 +106,7 @@ public Action Event_PlayerSpawn(Event hEvent, const char[] sName, bool bDontBroa
 
 public Action Event_Resupply(Event hEvent, const char[] sName, bool bDontBroadcast) {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
-	if (SMBL_GetBotClient(iClient)) {
+	if (SMBL_GetClientBot(iClient)) {
 		EquipMarketGardener(iClient);
 	}
 
@@ -113,10 +115,12 @@ public Action Event_Resupply(Event hEvent, const char[] sName, bool bDontBroadca
 
 public Action Event_RoundStart(Event hEvent, const char[] sName, bool bDontBroadcast) {
 	HookRegenTriggers();
+
+	return Plugin_Continue;
 }
 
 public Action Hook_TouchRegen(int iEntity, int iOther) {
-	if (Client_IsValid(iOther) && SMBL_GetBotClient(iOther)) {
+	if (Client_IsValid(iOther) && SMBL_GetClientBot(iOther)) {
 		return Plugin_Handled;
 	}
 
@@ -202,7 +206,7 @@ void SetupBots() {
 }
 
 void SetupBot(Bot mBot) {
-	SMBL_AttachController(mBot, "Generic");
+	mBot.SetController("Generic");
 }
 
 void SetupNavMesh() {
