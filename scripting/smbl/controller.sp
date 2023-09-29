@@ -4,9 +4,6 @@ void SetupControllerNatives() {
 
 	CreateNative("SMBL_RegisterController", Native_RegisterController);
 	CreateNative("SMBL_DeregisterController", Native_DeregisterController);
-
-	CreateNative("SMBL_AttachController", Native_AttachController);
-	CreateNative("SMBL_DetachController", Native_DetachController);
 }
 
 // public int Native_Controller_GetPlugin(Handle hPlugin, int iArgC) {
@@ -20,15 +17,15 @@ public int Native_RegisterController(Handle hPlugin, int iArgC) {
 		ThrowError("Invalid class: %d", iClass);
 	}
 
-	ArrayList hControllers = g_hControllers[view_as<int>(iClass)];
+	StringMap hControllers = g_hControllers[view_as<int>(iClass)];
 	if (!hControllers) {
-		g_hControllers[view_as<int>(iClass)] = hControllers = new ArrayList(sizeof(Controller));
+		g_hControllers[view_as<int>(iClass)] = hControllers = new StringMap();
 	}
 
 	Controller eController;
 	GetNativeString(1, eController.sIdentifier, sizeof(Controller::sIdentifier));
 
-	if (hControllers.FindString(eController.sIdentifier) != -1) {
+	if (hControllers.ContainsKey(eController.sIdentifier)) {
 		ThrowError("Controller with this identifier is already registered: %s", eController.sIdentifier);
 	}
 
@@ -46,55 +43,60 @@ public int Native_RegisterController(Handle hPlugin, int iArgC) {
 	// ControllerAttackFunc
 	eController.fnAttack = GetNativeFunction(6);
 
-	g_hControllers[view_as<int>(iClass)].PushArray(eController);
+	g_hControllers[view_as<int>(iClass)].SetArray(eController.sIdentifier, eController, sizeof(Controller));
 
 	char sClassName[32];
 	TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
 
 	PrintToServer("SMBL registered controller: %s (%s)", eController.sIdentifier, sClassName);
+
+	return 0;
 }
 
 public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 	TFClassType iClass = GetNativeCell(2);
+	char sIdentifier[64];
 
 	if (iClass == TFClass_Unknown) {
 		if (IsNativeParamNullString(1)) {
 			for (TFClassType i=TFClass_Scout; i<=TFClass_Engineer; i++) {
-				ArrayList hControllers = g_hControllers[view_as<int>(i)];
+				StringMap hControllers = g_hControllers[view_as<int>(i)];
 				if (!hControllers) {
 					continue;
 				}
 
-				int iIdx;
-				while ((iIdx = hControllers.FindValue(hPlugin, Controller::hPlugin)) != -1) {
-					Controller eController;
-					hControllers.GetArray(iIdx, eController);
-					hControllers.Erase(iIdx);
+				char sClassName[32];
+				TF2_GetClassName(i, sClassName, sizeof(sClassName));
 
-					char sClassName[32];
-					TF2_GetClassName(i, sClassName, sizeof(sClassName));
+				StringMapSnapshot hSnapshot = hControllers.Snapshot();
 
-					PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+				Controller eController;
+				for (int j=0; j<hSnapshot.Length; j++) {
+					hSnapshot.GetKey(j, sIdentifier, sizeof(sIdentifier));
+					hControllers.GetArray(sIdentifier, eController, sizeof(Controller));
+
+					if (eController.hPlugin == hPlugin) {
+						hControllers.Remove(sIdentifier);
+						PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+					}
 				}
+
+				delete hSnapshot;
 			}
 
 			return true;
 		}
 
-		char sIdentifier[64];
 		GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
 		for (TFClassType i=TFClass_Scout; i<=TFClass_Engineer; i++) {
-			ArrayList hControllers = g_hControllers[view_as<int>(i)];
+			StringMap hControllers = g_hControllers[view_as<int>(i)];
 			if (!hControllers) {
 				continue;
 			}
 
-			int iIdx = hControllers.FindString(sIdentifier);
-			if (iIdx != -1) {
-				Controller eController;
-				hControllers.GetArray(iIdx, eController);
-
+			Controller eController;
+			if (hControllers.GetArray(sIdentifier, eController, sizeof(Controller))) {
 				if (eController.hPlugin != hPlugin) {
 					char sPluginName[64];
 					GetPluginInfo(eController.hPlugin, PlInfo_Name, sPluginName, sizeof(sPluginName));
@@ -104,121 +106,62 @@ public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 				char sClassName[32];
 				TF2_GetClassName(i, sClassName, sizeof(sClassName));
 
-				hControllers.Erase(iIdx);
+				hControllers.Remove(sIdentifier);
 
 				PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
 			}
 		}
 
 		return true;
-	} else {
-		if (!(TFClass_Scout <= iClass <=TFClass_Engineer)) {
-			ThrowError("Invalid class: %d", iClass);
-		}
-
-		ArrayList hControllers = g_hControllers[view_as<int>(iClass)];
-		if (!hControllers) {
-			return false;
-		}
-
-		char sClassName[32];
-		TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
-
-		if (IsNativeParamNullString(1)) {
-			int iIdx;
-			while ((iIdx = hControllers.FindValue(hPlugin, Controller::hPlugin)) != -1) {
-				Controller eController;
-				hControllers.GetArray(iIdx, eController);
-				hControllers.Erase(iIdx);
-
-				PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
-			}
-
-			return true;
-		}
-
-		char sIdentifier[64];
-		GetNativeString(1, sIdentifier, sizeof(sIdentifier));
-
-		int iIdx = hControllers.FindString(sIdentifier);
-		if (iIdx != -1) {
-			Controller eController;
-			hControllers.GetArray(iIdx, eController);
-
-			if (eController.hPlugin != hPlugin) {
-				char sPluginName[64];
-				GetPluginInfo(eController.hPlugin, PlInfo_Name, sPluginName, sizeof(sPluginName));
-				ThrowError("Controller (%s) may only be deregistered from originating plugin: %s", eController.sIdentifier, sPluginName);
-			}
-
-			hControllers.Erase(iIdx);
-
-			PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
-
-			return true;
-		}
 	}
 
-	return false;
-}
+	if (!(TFClass_Scout <= iClass <=TFClass_Engineer)) {
+		ThrowError("Invalid class: %d", iClass);
+	}
 
-public int Native_AttachController(Handle hPlugin, int iArgC) {
-	Bot mBot = GetNativeCell(1);
-
-	char sController[64];
-	GetNativeString(2, sController, sizeof(sController));
-
-	int iEntity = mBot.iEntity;
-	if (!Client_IsValid(iEntity)) {
-		PrintToServer("SMBL currently only supports client controllers");
+	StringMap hControllers = g_hControllers[view_as<int>(iClass)];
+	if (!hControllers) {
 		return false;
 	}
-
-	TFClassType iClass = TF2_GetPlayerClass(iEntity);
 
 	char sClassName[32];
 	TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
 
-	ArrayList hControllers = g_hControllers[view_as<int>(iClass)];
+	if (IsNativeParamNullString(1)) {
+		StringMapSnapshot hSnapshot = hControllers.Snapshot();
 
-	bool bFound = false;
-	if (hControllers) {
-		int iControllersLength = hControllers.Length;
-		for (int i=0; i<iControllersLength; i++) {
-			Controller eController;
-			hControllers.GetArray(i, eController);
+		Controller eController;
+		for (int i=0; i<hSnapshot.Length; i++) {
+			hSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+			hControllers.GetArray(sIdentifier, eController, sizeof(Controller));
 
-			if (StrEqual(eController.sIdentifier, sController)) {
-				_Bot eBot;
-				g_hBots.GetArray(view_as<int>(mBot)-1, eBot);
-				eBot.eController = eController;
-				g_hBots.SetArray(view_as<int>(mBot)-1, eBot);
-				bFound = true;
-
-				PrintToServer("SMBL controller attached to %N: %s (%s)", iEntity, sController, sClassName);
+			if (eController.hPlugin == hPlugin) {
+				hControllers.Remove(sIdentifier);
+				PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
 			}
 		}
+
+		delete hSnapshot;
+
+		return true;
 	}
 
-	if (!bFound) {
-		PrintToServer("SMBL controller not found: %s (%s)", sController, sClassName);
-		return false;
-	}
-
-	return true;
-}
-
-public int Native_DetachController(Handle hPlugin, int iArgC) {
-	Bot mBot = GetNativeCell(1);
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
 	Controller eController;
-	_Bot eBot;
-	g_hBots.GetArray(view_as<int>(mBot)-1, eBot);
-	eBot.eController = eController;
-	g_hBots.SetArray(view_as<int>(mBot)-1, eBot);
+	if (hControllers.GetArray(sIdentifier, eController, sizeof(Controller))) {
+		if (eController.hPlugin != hPlugin) {
+			char sPluginName[64];
+			GetPluginInfo(eController.hPlugin, PlInfo_Name, sPluginName, sizeof(sPluginName));
+			ThrowError("Controller (%s) may only be deregistered from originating plugin: %s", eController.sIdentifier, sPluginName);
+		}
 
-	int iEntity = mBot.iEntity;
-	if (Client_IsValid(iEntity)) {
-		PrintToServer("SMBL cleared controller from %N", iEntity);
+		hControllers.Remove(sIdentifier);
+
+		PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+
+		return true;
 	}
+
+	return false;
 }

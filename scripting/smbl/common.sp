@@ -12,6 +12,7 @@ enum struct Controller {
 	Function fnMove;		// ControllerMoveFunc
 	Function fnEncounter;	// ControllerEncounterFunc
 	Function fnAttack;		// ControllerAttackFunc
+	any aData[16];
 }
 
 enum struct _Bot {
@@ -19,7 +20,7 @@ enum struct _Bot {
 	char sDefaultName[MAX_NAME_LENGTH];
 	
 	Controller eController;
-	Operation mOpMain;
+	OpRef mMainOpRef;
 
 	int iEntity;
 	int iTarget;
@@ -42,8 +43,8 @@ ArrayList g_hDirectors;
 Handle g_hDirectorThinkTimer;
 float g_fDirectorThinkInterval;
 
-ArrayList g_hControllers[TFClassType];
+StringMap g_hControllers[TFClassType];
 
 ArrayList g_hBots;
-Bot g_mBotClients[MAXPLAYERS+1];
-int g_iBotClientsCount;
+Bot g_mClientBot[MAXPLAYERS+1];
+int g_iClientBotCount;

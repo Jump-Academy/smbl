@@ -11,17 +11,17 @@ void SetupBotNatives() {
 	g_hOnBotAddForward = new GlobalForward("SMBL_OnBotAdd", ET_Ignore, Param_Cell);
 	g_hOnBotRemoveForward = new GlobalForward("SMBL_OnBotRemove", ET_Ignore, Param_Cell);
 
-// 	CreateNative("Bot.mController.get", 		Native_Bot_GetController);
-// 	CreateNative("Bot.mController.set", 		Native_Bot_SetController);
-
-	CreateNative("Bot.mOpMain.get", 			Native_Bot_GetOpMain);
-	CreateNative("Bot.mOpMain.set", 			Native_Bot_SetOpMain);
+	CreateNative("Bot.bActive.get", 			Native_Bot_GetActive);
+	CreateNative("Bot.bActive.set", 			Native_Bot_SetActive);
 
 	CreateNative("Bot.GetDefaultName",			Native_Bot_GetDefaultName);
 	CreateNative("Bot.SetDefaultName",			Native_Bot_SetDefaultName);
-	
-	CreateNative("Bot.bActive.get", 			Native_Bot_GetActive);
-	CreateNative("Bot.bActive.set", 			Native_Bot_SetActive);
+
+	CreateNative("Bot.SetController", 			Native_Bot_SetController);
+	CreateNative("Bot.RemoveController", 		Native_RemoveController);
+
+	CreateNative("Bot.mMainOperation.get", 		Native_Bot_GetMainOp);
+	CreateNative("Bot.mMainOperation.set", 		Native_Bot_SetMainOp);
 
 	CreateNative("Bot.iEntity.get", 			Native_Bot_GetEntity);
 	CreateNative("Bot.iEntity.set", 			Native_Bot_SetEntity);
@@ -38,6 +38,8 @@ void SetupBotNatives() {
 	CreateNative("Bot.GetAimTo",				Native_Bot_GetAimTo);
 	CreateNative("Bot.SetAimTo",				Native_Bot_SetAimTo);
 
+	CreateNative("Bot.GetAimError",				Native_Bot_GetAimError);
+
 	CreateNative("Bot.GetLocalVelocity",		Native_Bot_GetLocalVelocity);
 	CreateNative("Bot.SetLocalVelocity",		Native_Bot_SetLocalVelocity);
 
@@ -50,7 +52,7 @@ void SetupBotNatives() {
 	CreateNative("Bot.Destroy", 				Native_Bot_Destroy);
 
 	CreateNative("SMBL_GetBots", 				Native_GetBots);
-	CreateNative("SMBL_GetBotClient", 			Native_GetBotClient);
+	CreateNative("SMBL_GetClientBot", 			Native_GetClientBot);
 }
 
 
@@ -65,6 +67,8 @@ public int Native_Bot_SetActive(Handle hPlugin, int iArgC) {
 	bool bActive = GetNativeCell(2);
 
 	m_hBots.Set(iThis, bActive, _Bot::bActive);
+
+	return 0;
 }
 
 public int Native_Bot_GetDefaultName(Handle hPlugin, int iArgC) {
@@ -74,7 +78,9 @@ public int Native_Bot_GetDefaultName(Handle hPlugin, int iArgC) {
 
 	_Bot eBot;
 	m_hBots.GetArray(iThis, eBot);
-	SetNativeString(2, eBot.sDefaultName, iMaxLength);	
+	SetNativeString(2, eBot.sDefaultName, iMaxLength);
+
+	return 0;
 }
 
 public int Native_Bot_SetDefaultName(Handle hPlugin, int iArgC) {
@@ -84,32 +90,81 @@ public int Native_Bot_SetDefaultName(Handle hPlugin, int iArgC) {
 	m_hBots.GetArray(iThis, eBot);
 	GetNativeString(2, eBot.sDefaultName, sizeof(_Bot::sDefaultName));	
 	m_hBots.SetArray(iThis, eBot);
+
+	return 0;
 }
 
-// public int Native_Bot_GetController(Handle hPlugin, int iArgC) {
-// 	int iThis = GetNativeCell(1)-1;
+public int Native_Bot_SetController(Handle hPlugin, int iArgC) {
+	Bot mBot = GetNativeCell(1);
 
-// 	return m_hBots.Get(iThis, _Bot::mController);
-// }
+	int iThis = view_as<int>(mBot)-1;
 
-// public int Native_Bot_SetController(Handle hPlugin, int iArgC) {
-// 	int iThis = GetNativeCell(1)-1;
-// 	Controller mController = GetNativeCell(2);
+	char sController[64];
+	GetNativeString(2, sController, sizeof(sController));
 
-// 	m_hBots.Set(iThis, mController, _Bot::mController);
-// }
+	int iEntity = mBot.iEntity;
+	if (!Client_IsValid(iEntity)) {
+		PrintToServer("SMBL currently only supports client controllers");
+		return false;
+	}
 
-public int Native_Bot_GetOpMain(Handle hPlugin, int iArgC) {
-	int iThis = GetNativeCell(1)-1;
+	TFClassType iClass = TF2_GetPlayerClass(iEntity);
 
-	return m_hBots.Get(iThis, _Bot::mOpMain);
+	char sClassName[32];
+	TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
+
+	StringMap hControllers = g_hControllers[view_as<int>(iClass)];
+
+	_Bot eBot;
+	m_hBots.GetArray(iThis, eBot);
+
+	if (hControllers.GetArray(sController, eBot.eController, sizeof(_Bot::eController))) {
+		m_hBots.SetArray(iThis, eBot);
+		PrintToServer("SMBL controller set to %N: %s (%s)", iEntity, sController, sClassName);
+	} else {
+		PrintToServer("SMBL controller not found: %s (%s)", sController, sClassName);
+		return false;
+	}
+
+	return true;
 }
 
-public int Native_Bot_SetOpMain(Handle hPlugin, int iArgC) {
-	int iThis = GetNativeCell(1)-1;
-	Operation mOpMain = GetNativeCell(2);
+public int Native_RemoveController(Handle hPlugin, int iArgC) {
+	Bot mBot = GetNativeCell(1);
 
-	m_hBots.Set(iThis, mOpMain, _Bot::mOpMain);
+	int iThis = view_as<int>(mBot)-1;
+
+	_Bot eBot;
+	m_hBots.GetArray(iThis, eBot);
+
+	Controller eController;
+	eBot.eController = eController;
+
+	m_hBots.SetArray(iThis, eBot);
+
+	int iEntity = eBot.iEntity;
+	if (Client_IsValid(iEntity)) {
+		PrintToServer("SMBL removed controller from %N", iEntity);
+	}
+
+	return 0;
+}
+
+
+public any Native_Bot_GetMainOp(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	OpRef mOpRef = m_hBots.Get(iThis, _Bot::mMainOpRef);
+	return mOpRef.ToOperation();
+}
+
+public int Native_Bot_SetMainOp(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	Operation mMainOperation = GetNativeCell(2);
+
+	m_hBots.Set(iThis, mMainOperation.ToOpRef(), _Bot::mMainOpRef);
+
+	return 0;
 }
 
 public int Native_Bot_GetEntity(Handle hPlugin, int iArgC) {
@@ -123,6 +178,8 @@ public int Native_Bot_SetEntity(Handle hPlugin, int iArgC) {
 	int iEntity = EntIndexToEntRef(GetNativeCell(2));
 
 	m_hBots.Set(iThis, iEntity, _Bot::iEntity);
+
+	return 0;
 }
 
 public int Native_Bot_GetTarget(Handle hPlugin, int iArgC) {
@@ -136,6 +193,8 @@ public int Native_Bot_SetTarget(Handle hPlugin, int iArgC) {
 	int iTarget = GetNativeCell(2);
 
 	m_hBots.Set(iThis, iTarget, _Bot::iTarget);
+
+	return 0;
 }
 
 public int Native_Bot_GetButtons(Handle hPlugin, int iArgC) {
@@ -149,6 +208,8 @@ public int Native_Bot_SetButtons(Handle hPlugin, int iArgC) {
 	int iButtons = GetNativeCell(2);
 
 	m_hBots.Set(iThis, iButtons, _Bot::iButtons);
+
+	return 0;
 }
 
 public int Native_Bot_GetPID(Handle hPlugin, int iArgC) {
@@ -160,6 +221,8 @@ public int Native_Bot_GetPID(Handle hPlugin, int iArgC) {
 	vecPID[2] = m_hBots.Get(iThis, _Bot::vecPID+2);
 
 	SetNativeArray(2, vecPID, sizeof(vecPID));
+
+	return 0;
 }
 
 public int Native_Bot_SetPID(Handle hPlugin, int iArgC) {
@@ -171,6 +234,8 @@ public int Native_Bot_SetPID(Handle hPlugin, int iArgC) {
 	m_hBots.Set(iThis, vecPID[0], _Bot::vecPID  );
 	m_hBots.Set(iThis, vecPID[1], _Bot::vecPID+1);
 	m_hBots.Set(iThis, vecPID[2], _Bot::vecPID+2);
+
+	return 0;
 }
 
 public int Native_Bot_GetMoveTo(Handle hPlugin, int iArgC) {
@@ -182,6 +247,8 @@ public int Native_Bot_GetMoveTo(Handle hPlugin, int iArgC) {
 	vecPos[2] = m_hBots.Get(iThis, _Bot::vecMoveTo+2);
 
 	SetNativeArray(2, vecPos, sizeof(vecPos));
+
+	return 0;
 }
 
 public int Native_Bot_SetMoveTo(Handle hPlugin, int iArgC) {
@@ -193,6 +260,8 @@ public int Native_Bot_SetMoveTo(Handle hPlugin, int iArgC) {
 	m_hBots.Set(iThis, vecPos[0], _Bot::vecMoveTo  );
 	m_hBots.Set(iThis, vecPos[1], _Bot::vecMoveTo+1);
 	m_hBots.Set(iThis, vecPos[2], _Bot::vecMoveTo+2);
+
+	return 0;
 }
 
 public int Native_Bot_GetAimTo(Handle hPlugin, int iArgC) {
@@ -204,17 +273,33 @@ public int Native_Bot_GetAimTo(Handle hPlugin, int iArgC) {
 	vecAng[2] = m_hBots.Get(iThis, _Bot::vecAimTo+2);
 
 	SetNativeArray(2, vecAng, sizeof(vecAng));
+
+	return 0;
 }
 
 public int Native_Bot_SetAimTo(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 
-	float vecAng[3];
-	GetNativeArray(2, vecAng, sizeof(vecAng));
+	_Bot eBot;
+	m_hBots.GetArray(iThis, eBot, sizeof(_Bot));
 
-	m_hBots.Set(iThis, vecAng[0], _Bot::vecAimTo  );
-	m_hBots.Set(iThis, vecAng[1], _Bot::vecAimTo+1);
-	m_hBots.Set(iThis, vecAng[2], _Bot::vecAimTo+2);
+	GetNativeArray(2, eBot.vecAimTo[0], sizeof(_Bot::vecAimTo));
+
+	GetAngDiff(eBot.vecAimTo[0], eBot.vecAng[0], eBot.vecAngError[0]);
+	GetAngDiff(eBot.vecAimTo[1], eBot.vecAng[1], eBot.vecAngError[1]);
+
+	m_hBots.SetArray(iThis, eBot, sizeof(_Bot));
+
+	return 0;
+}
+
+public int Native_Bot_GetAimError(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	SetNativeCellRef(2, m_hBots.Get(iThis, _Bot::vecAngError  ));
+	SetNativeCellRef(3, m_hBots.Get(iThis, _Bot::vecAngError+1));
+
+	return 0;
 }
 
 public int Native_Bot_GetLocalVelocity(Handle hPlugin, int iArgC) {
@@ -226,6 +311,8 @@ public int Native_Bot_GetLocalVelocity(Handle hPlugin, int iArgC) {
 	vecLocalVel[2] = m_hBots.Get(iThis, _Bot::vecLocalVel+2);
 
 	SetNativeArray(2, vecLocalVel, sizeof(vecLocalVel));
+
+	return 0;
 }
 
 public int Native_Bot_SetLocalVelocity(Handle hPlugin, int iArgC) {
@@ -237,6 +324,8 @@ public int Native_Bot_SetLocalVelocity(Handle hPlugin, int iArgC) {
 	m_hBots.Set(iThis, vecLocalVel[0], _Bot::vecLocalVel  );
 	m_hBots.Set(iThis, vecLocalVel[1], _Bot::vecLocalVel+1);
 	m_hBots.Set(iThis, vecLocalVel[2], _Bot::vecLocalVel+2);
+
+	return 0;
 }
 
 public int Native_Bot_Cleanup(Handle hPlugin, int iArgC) {
@@ -245,12 +334,18 @@ public int Native_Bot_Cleanup(Handle hPlugin, int iArgC) {
 
 	int iEntity = EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntity));
 	if (iEntity <= 0) {
-		return;
+		return 0;
 	}
 
 	Call_StartForward(g_hOnBotRemoveForward);
 	Call_PushCell(mBot);
 	Call_Finish();
+
+	OpRef mMainOpRef = m_hBots.Get(iThis, _Bot::mMainOpRef);
+	Operation mMainOperation = mMainOpRef.ToOperation();
+	if (mMainOperation) {
+		Operation.Destroy(mMainOperation);
+	}
 
 	if (1 <= iEntity <= MaxClients) {
 		if (IsClientInGame(iEntity)) {
@@ -259,6 +354,8 @@ public int Native_Bot_Cleanup(Handle hPlugin, int iArgC) {
 	} else {
 		AcceptEntityInput(iEntity, "Kill");
 	}
+
+	return 0;
 }
 
 public any Native_Bot_Instance(Handle hPlugin, int iArgC) {
@@ -277,7 +374,7 @@ public any Native_Bot_Instance(Handle hPlugin, int iArgC) {
 public any Native_Bot_Destroy(Handle hPlugin, int iArgC) {
 	int iBotIdx = GetNativeCell(1)-1;
 	if (iBotIdx < 0 || iBotIdx >= m_hBots.Length) {
-		return;
+		return 0;
 	}
 
 	m_hBots.Set(iBotIdx, true, _Bot::bGCFlag);
@@ -288,12 +385,14 @@ public any Native_Bot_Destroy(Handle hPlugin, int iArgC) {
 		for (int i=iBotIdx; i>0; i--) {
 			if (!m_hBots.Get(i-1, _Bot::bGCFlag)) {
 				m_hBots.Resize(i);
-				return;
+				return 0;
 			}
 		}
 
 		m_hBots.Clear();
 	}
+
+	return 0;
 }
 
 public int Native_GetBots(Handle hPlugin, int iArgC) {
@@ -307,16 +406,16 @@ public int Native_GetBots(Handle hPlugin, int iArgC) {
 	return hBots.Length;
 }
 
-public any Native_GetBotClient(Handle hPlugin, int iArgC) {
+public any Native_GetClientBot(Handle hPlugin, int iArgC) {
 	int iClient = GetNativeCell(1);
 	if (!Client_IsValid(iClient)) {
 		ThrowError("Index %d is not a client", iClient);
 	}
 
-	return g_mBotClients[iClient];
+	return g_mClientBot[iClient];
 }
 
-// Internal helpers
+// Helpers
 
 public void AdjustAim(Bot mBot, float vecAng[3]) {
 	int iBotIdx = view_as<int>(mBot)-1;
@@ -330,8 +429,6 @@ public void AdjustAim(Bot mBot, float vecAng[3]) {
 
 	float vecPID[3];
 	vecPID = eBot.vecPID;
-
-// 	PrintToServer("Adjusting aim with PID: %.1f, %.1f, %.1f", vecPID[0], vecPID[1], vecPID[2]);
 
 	if (FloatAbs(vecAngDiff[1]) > 60.0) {
 		vecPID[1] = vecPID[2] = 0.0;
@@ -355,6 +452,35 @@ public void AdjustAim(Bot mBot, float vecAng[3]) {
 	ClipAngle(eBot.fIError[1], -180.0, 180.0);
 
 	m_hBots.SetArray(iBotIdx, eBot);
+}
 
-// 	vecAng = eBot.vecAimTo;
+void ClipAngle(float &fValue, float fMin=-360.0, float fMax=360.0) {
+	if (fValue < fMin) {
+		fValue = fMin;
+	} else if (fValue > fMax) {
+		fValue = fMax;
+	}
+}
+
+void NormalizeAngle(float &fAngle) {
+	if (fAngle < 0.0) {
+		fAngle += 360.0;
+	} else if (fAngle > 360.0) {
+		fAngle -= 360.0;
+	}
+}
+
+int GetAngDiff(float fAngA, float fAngB, float &fDiff) {
+	fDiff = fAngA - fAngB;
+	if (fDiff < -180.0) {
+		fDiff += 360.0;
+
+		ClipAngle(fDiff);
+		return -1;
+	} else if (fDiff > 180.0) {
+		fDiff -= 360.0;
+	}
+
+	ClipAngle(fDiff);
+	return 1;
 }

@@ -22,7 +22,7 @@ public void OnPluginEnd() {
 }
 
 public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "SMBL")) {
+	if (StrEqual(sName, "smbl")) {
 		RegisterAllClasses();
 	}
 }

@@ -25,6 +25,8 @@ public int Native_RegisterDirector(Handle hPlugin, int iArgC) {
 	}
 
 	PrintToServer("SMBL registered director: %s", eDirector.sIdentifier);
+
+	return 0;
 }
 
 public int Native_DeregisterDirector(Handle hPlugin, int iArgC) {

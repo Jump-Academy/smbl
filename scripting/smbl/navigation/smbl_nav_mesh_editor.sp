@@ -5,6 +5,9 @@
 #define PLUGIN_AUTHOR "AI"
 #define PLUGIN_VERSION "0.1.0"
 
+#include <sourcemod>
+#include <sdktools>
+
 #include <smlib/effects>
 #include <smlib/entities>
 
@@ -478,7 +481,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 				}
 
 				// At least 90 degrees difference (i.e. at right angle or opposite-facing)
-				if (bSkipUpdate || GetVectorDotProduct(vecSelectedDir, vecSelected2Dir) <= 0.0) {
+				if (bSkipUpdate || true || GetVectorDotProduct(vecSelectedDir, vecSelected2Dir) <= 0.0) {
 					float vecDiff[3];
 					SubtractVectors(vecVertexB, vecVertexA, vecDiff);
 					vecDiff[2] = 0.0;
@@ -565,7 +568,7 @@ bool CheckVisibility(const float vecPos[3], const float vecPosTarget[3], float v
 	return false;
 }
 
-void DrawDebugLine(float vecPosA[3], float vecPosB[3], int iColor[4], float fLife=0.1, float fThickness=1.0, int[] iClients=0, int iClientCount=-1) {
+void DrawDebugLine(float vecPosA[3], float vecPosB[3], int iColor[4], float fLife=0.1, float fThickness=1.0, int iClients[MAXPLAYERS+1]={0, ...}, int iClientCount=-1) {
 	TE_SetupBeamPoints(vecPosA, vecPosB, g_iLaser, g_iHalo, 0, 66, fLife, fThickness, fThickness, 1, 0.0, iColor, 0);
 	if (iClientCount == -1) {
 		TE_SendToAll();
@@ -704,11 +707,21 @@ void DrawAttachedEdgeNode(NavNode mNavNode, int iEdge, int iAttachment, int iCol
 
 	DrawNode(mAttachedNode, iColor);
 
-	float vecVertexA[3], vecVertexB[3];
-	mNavNode.GetEdgeCenter(iEdge, vecVertexA);
-	mAttachedNode.GetEdgeCenter(iAttachedNodeEdge, vecVertexB);
+	float vecNodeOverlapEdge[2][3];
+	mNavNode.GetEdgeOverlap(iEdge, mAttachedNode, iAttachedNodeEdge, vecNodeOverlapEdge[0], vecNodeOverlapEdge[1]);
 
-// 	DrawDebugLine(vecVertexA, vecVertexB, COLOR_RED, 0.3, 1.0);
+	float vecAttachedNodeOverlapEdge[2][3];
+	mAttachedNode.GetEdgeOverlap(iAttachedNodeEdge, mNavNode, iEdge, vecAttachedNodeOverlapEdge[0], vecAttachedNodeOverlapEdge[1]);
+
+	float vecVertexA[3], vecVertexB[3];
+	AddVectors(vecNodeOverlapEdge[0], vecNodeOverlapEdge[1], vecVertexA);
+	ScaleVector(vecVertexA, 0.5);
+
+	AddVectors(vecAttachedNodeOverlapEdge[0], vecAttachedNodeOverlapEdge[1], vecVertexB);
+	ScaleVector(vecVertexB, 0.5);
+
+// 	mNavNode.GetEdgeCenter(iEdge, vecVertexA);
+// 	mAttachedNode.GetEdgeCenter(iAttachedNodeEdge, vecVertexB);
 
 	int iAttachmentColorA[4], iAttachmentColorB[4];
 	GetAttachmentColor(iAttachmentFlags, iAttachmentColorB);
@@ -767,6 +780,7 @@ void DrawAttachedEdgeNode(NavNode mNavNode, int iEdge, int iAttachment, int iCol
 		DrawDebugLine(vecVertexA, vecVertexCenter, iAttachmentColorA, 0.3, 1.0);
 		DrawDebugLine(vecVertexB, vecVertexCenter, iAttachmentColorB, 0.3, 1.0);
 	}
+
 
 	if (iAttachmentFlags == iAttachedNodeAttachmentFlags && iAttachedNodeAttachment != -1) {
 		return;
@@ -988,56 +1002,6 @@ bool LoadNavFile(char[] sFileName) {
 	}
 
 	g_mNavMesh = NavMesh.LoadNavFile(sFilePath);
-
-	/*
-	ArrayList hNavNodes = g_mNavMesh.GetNodes();
-
-	for (int i=0; i<hNavNodes.Length; i++) {
-		NavNode mNavNode = hNavNodes.Get(i);
-
-		int iVertices = mNavNode.iVertices;
-
-		float vecOrigin[3];
-		mNavNode.GetOrigin(vecOrigin);
-
-		bool bPillar = vecOrigin[2] > -800;
-
-		for (int j=0; j<iVertices; j++) {
-
-			int iAttachmentsLength = mNavNode.GetAttachmentsLength(j);
-
-			if (iAttachmentsLength && bPillar) {
-				for (int k=0; k<iAttachmentsLength; k++) {
-					NavNode mAttachedNode;
-					int iAttachedNodeEdge;
-					int iAttachmentFlags;
-
-					mNavNode.GetAttachment(j, k, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags);
-					mNavNode.SetAttachment(j, k, mAttachedNode, iAttachedNodeEdge, FL_ATTACH_DROP);
-				}
-
-// 				mNavNode.ClearAttachments(j);
-			}
-			
-			if (iAttachmentsLength) {
-				for (int k=0; k<iAttachmentsLength; k++) {
-					NavNode mAttachedNode;
-					int iAttachedNodeEdge;
-					int iAttachmentFlags;
-
-					mNavNode.GetAttachment(j, k, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags);
-					mNavNode.SetAttachment(j, k, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags | FL_ATTACH_GROUND);
-				}
-			} else {
-				int iAttachmentFlags = vecOrigin[2] > -800 ? FL_ATTACH_DROP : FL_ATTACH_SOLID | FL_ATTACH_WALL;
-
-				mNavNode.PushAttachment(j, NULL_NAV_NODE, -1, iAttachmentFlags);
-			}
-			
-		}
-	}
-	delete hNavNodes;
-	*/
 
 	return true;
 }
@@ -1472,6 +1436,8 @@ public int MenuHandler_NavEdit(Menu hMenu, MenuAction iAction, int iClient, int 
 			}
 		}
 	}
+
+	return 0;
 }
 
 public int MenuHandler_NavAddNode(Menu hMenu, MenuAction iAction, int iClient, int iOption) {
@@ -1550,6 +1516,8 @@ public int MenuHandler_NavAddNode(Menu hMenu, MenuAction iAction, int iClient, i
 			}
 		}
 	}
+
+	return 0;
 }
 
 public int MenuHandler_NavEditNode(Menu hMenu, MenuAction iAction, int iClient, int iOption) {
@@ -1585,6 +1553,8 @@ public int MenuHandler_NavEditNode(Menu hMenu, MenuAction iAction, int iClient, 
 			}
 		}
 	}
+
+	return 0;
 }
 
 public int MenuHandler_EditAttachment(Menu hMenu, MenuAction iAction, int iClient, int iOption) {
@@ -1688,6 +1658,8 @@ public int MenuHandler_EditAttachment(Menu hMenu, MenuAction iAction, int iClien
 			}
 		}
 	}
+
+	return 0;
 }
 
 public int MenuHandler_EditAttachmentAttributes(Menu hMenu, MenuAction iAction, int iClient, int iOption) {
@@ -1716,6 +1688,8 @@ public int MenuHandler_EditAttachmentAttributes(Menu hMenu, MenuAction iAction, 
 			delete hMenu;
 		}
 	}
+
+	return 0;
 }
 
 public int MenuHandler_EditAttachmentsList(Menu hMenu, MenuAction iAction, int iClient, int iOption) {
@@ -1735,4 +1709,6 @@ public int MenuHandler_EditAttachmentsList(Menu hMenu, MenuAction iAction, int i
 			delete hMenu;
 		}
 	}
+
+	return 0;
 }

@@ -25,6 +25,7 @@
 enum struct _NavNode {
 	float vecOrigin[3];
 	float vecVertices[MAX_VERTICES*3];
+	float vecVertexAngles[MAX_VERTICES*3];
 	float vecEdgeCenters[MAX_VERTICES*3];
 	float vecBBoxMins[3];
 	float vecBBoxMaxs[3];
@@ -49,11 +50,191 @@ enum struct _NavNode {
 		this.vecVertices[iOffset+2] = vecVertex[2];
 	}
 
+	void GetVertexAngles(int i, float vecAngles[3]) {
+		int iOffset = 3*i;
+		vecAngles[0] = this.vecVertexAngles[iOffset  ];
+		vecAngles[1] = this.vecVertexAngles[iOffset+1];
+		vecAngles[2] = this.vecVertexAngles[iOffset+2];
+	}
+
 	void GetEdgeCenter(int iEdge, float vecPoint[3]) {
 		int iOffset = 3*iEdge;
 		vecPoint[0] = this.vecEdgeCenters[iOffset  ];
 		vecPoint[1] = this.vecEdgeCenters[iOffset+1];
 		vecPoint[2] = this.vecEdgeCenters[iOffset+2];
+	}
+
+	void GetEdgeVertices(int iEdge, float vecVertexA[3], float vecVertexB[3]) {
+		int iOffset = 3*iEdge;
+		vecVertexA[0] = this.vecVertices[iOffset  ];
+		vecVertexA[1] = this.vecVertices[iOffset+1];
+		vecVertexA[2] = this.vecVertices[iOffset+2];
+
+		if (iEdge == this.iVertices-1) {
+			vecVertexB[0] = this.vecVertices[0];
+			vecVertexB[1] = this.vecVertices[1];
+			vecVertexB[2] = this.vecVertices[2];
+		} else {
+			vecVertexB[0] = this.vecVertices[iOffset+3];
+			vecVertexB[1] = this.vecVertices[iOffset+4];
+			vecVertexB[2] = this.vecVertices[iOffset+5];
+		}
+	}
+
+	void GetEdgeOverlap(int iEdge, NavNode mOtherNode, int iOtherEdge, float vecVertexA[3], float vecVertexB[3]) {
+		this.GetEdgeVertices(iEdge, vecVertexA, vecVertexB);
+
+		float vecVertexOtherA[3], vecVertexOtherB[3];
+		mOtherNode.GetEdgeVertices(iOtherEdge, vecVertexOtherA, vecVertexOtherB);
+
+		float vecVectorAB[3];
+		SubtractVectors(vecVertexB, vecVertexA, vecVectorAB);
+		NormalizeVector(vecVectorAB, vecVectorAB);
+
+		float vecVectorAOtherB[3];
+		SubtractVectors(vecVertexOtherB, vecVertexA, vecVectorAOtherB);
+
+		float vecClipA[3], vecClipB[3];
+
+		float fOtherBProjAB = GetVectorDotProduct(vecVectorAB, vecVectorAOtherB);
+		if (fOtherBProjAB < 0) {
+			vecClipA = vecVertexA;
+		} else {
+			ScaleVector(vecVectorAB, fOtherBProjAB);
+			AddVectors(vecVertexA, vecVectorAB, vecClipA);
+		}
+
+		float vecVectorBA[3];
+		SubtractVectors(vecVertexA, vecVertexB, vecVectorBA);
+		NormalizeVector(vecVectorBA, vecVectorBA);
+
+		float vecVectorBOtherA[3];
+		SubtractVectors(vecVertexOtherA, vecVertexB, vecVectorBOtherA);
+
+		float fOtherAProjBA = GetVectorDotProduct(vecVectorBA, vecVectorBOtherA);
+		if (fOtherAProjBA < 0) {
+			vecClipB = vecVertexB;
+		} else {
+			ScaleVector(vecVectorBA, fOtherAProjBA);
+			AddVectors(vecVertexB, vecVectorBA, vecClipB);
+		}
+
+		vecVertexA = vecClipA;
+		vecVertexB = vecClipB;
+	}
+
+	float GetNearestEdgeProjection(float vecInteralPoint[3], float vecEdgeProj[3], int &iEdge, int &iAttachment, int iAttachmentFlags, float vecDirection[3]) {
+		if (!this.Contains(vecInteralPoint)) {
+			ThrowError("Point is not within node");
+		}
+
+		float fMinDist = POSITIVE_INFINITY;
+		int iMinEdge = -1;
+		int iMinAttachment;
+		float vecMinNearestEdge[3];
+
+		int iSearchEdge =-1;
+		int iSearchAttachment = -1;
+		int iStartEdge, iStartAttachment;
+		NavNode _mAttachedNode;
+		int _iAttachedNodeEdge;
+		int _iAttachmentFlags;
+
+		while (this.FindAttachmentWithFlags(iAttachmentFlags, false, iSearchEdge, iSearchAttachment, _mAttachedNode, _iAttachedNodeEdge, _iAttachmentFlags, iStartEdge, iStartAttachment)) {
+			float vecVertexA[3], vecVertexB[3];
+			this.GetEdgeVertices(iSearchEdge, vecVertexA, vecVertexB);
+
+			float vecEdgeVector[3];
+			SubtractVectors(vecVertexB, vecVertexA, vecEdgeVector);
+
+			float fEdgeLength = GetVectorLength(vecEdgeVector);
+			NormalizeVector(vecEdgeVector, vecEdgeVector);
+
+			float vecInternalToVertexAVector[3];
+			SubtractVectors(vecInteralPoint, vecVertexA, vecInternalToVertexAVector);
+
+			float vecNearestEdge[3];
+			float fProjLength = GetVectorDotProduct(vecInternalToVertexAVector, vecEdgeVector);
+			if (fProjLength < 0) {
+				vecNearestEdge = vecVertexA;
+			} else if (fProjLength >= fEdgeLength) {
+				vecNearestEdge = vecVertexB;
+			} else {
+				ScaleVector(vecEdgeVector, fProjLength);
+				AddVectors(vecVertexA, vecEdgeVector, vecNearestEdge);
+			}
+
+			float vecDirectionEdge[3];
+			SubtractVectors(vecNearestEdge, vecInteralPoint, vecDirectionEdge);
+
+			if (IsNullVector(vecDirection) || GetVectorDotProduct(vecDirection, vecDirectionEdge) > 1) {
+				float fDist = GetVectorDistance(vecInteralPoint, vecNearestEdge);
+				if (fDist < fMinDist) {
+					fMinDist = fDist;
+					iMinEdge = iSearchEdge;
+					iMinAttachment = iSearchAttachment;
+					vecMinNearestEdge = vecNearestEdge;
+				}
+			}
+
+			// Reset to continue next iteration
+			iSearchEdge = -1;
+			iSearchAttachment = -1;
+		}
+
+		vecEdgeProj = vecMinNearestEdge;
+		iEdge = iMinEdge;
+		iAttachment = iMinAttachment;
+
+		return fMinDist;
+	}
+
+	float GetHullProjection(float vecPoint[3], float vecHullPoint[3], int &iEdge) {
+		if (this.Contains(vecPoint)) {
+			vecHullPoint = vecPoint;
+			return 0.0;
+		}
+
+		float fMinDist = POSITIVE_INFINITY;
+		int iMinEdge = -1;
+		float vecMinNearestEdge[3];
+
+		for (int i=0; i<this.iVertices; i++) {
+			float vecVertexA[3], vecVertexB[3];
+			this.GetEdgeVertices(i, vecVertexA, vecVertexB);
+
+			float vecEdgeVector[3];
+			SubtractVectors(vecVertexB, vecVertexA, vecEdgeVector);
+
+			float fEdgeLength = GetVectorLength(vecEdgeVector);
+			NormalizeVector(vecEdgeVector, vecEdgeVector);
+
+			float vecPointToVertexAVector[3];
+			SubtractVectors(vecPoint, vecVertexA, vecPointToVertexAVector);
+
+			float vecNearestEdge[3];
+			float fProjLength = GetVectorDotProduct(vecPointToVertexAVector, vecEdgeVector);
+			if (fProjLength < 0) {
+				vecNearestEdge = vecVertexA;
+			} else if (fProjLength >= fEdgeLength) {
+				vecNearestEdge = vecVertexB;
+			} else {
+				ScaleVector(vecEdgeVector, fProjLength);
+				AddVectors(vecVertexA, vecEdgeVector, vecNearestEdge);
+			}
+
+			float fDist = GetVectorDistance(vecPoint, vecNearestEdge);
+			if (fDist < fMinDist) {
+				fMinDist = fDist;
+				iMinEdge = i;
+				vecMinNearestEdge = vecNearestEdge;
+			}
+		}
+
+		vecHullPoint = vecMinNearestEdge;
+		iEdge = iMinEdge;
+
+		return fMinDist;
 	}
 
 	int PushAttachment(int iEdge, NavNode mAttachedNode, int iAttachedNodeEdge, int iAttachmentFlags) {
@@ -167,7 +348,101 @@ enum struct _NavNode {
 		return -1;
 	}
 
-	int ClearAttachments(int iEdge) {
+	bool FindAttachmentWithFlags(int iFindAttachmentFlags, bool bExactMatch, int &iEdge, int &iAttachment, NavNode &mAttachedNode, int &iAttachedNodeEdge, int &iAttachmentFlags, int &iStartEdge, int &iStartAttachment) {
+		NavNode mAttachedNodeCandidate;
+		int iAttachedNodeEdgeCandidate;
+		int iAttachmentFlagsCandidate;
+
+		if (iEdge == -1) {
+			for (int i=iStartEdge; i<this.iVertices; i++) {
+				int iAttachmentLength = this.GetAttachmentsLength(i);
+
+				for (int j=iStartAttachment; j<iAttachmentLength; j++) {
+					int iOffset = MAX_EDGE_ATTACHMENTS*i + j;
+
+					iAttachmentFlagsCandidate = this.iAttachmentFlags[iOffset];
+					mAttachedNodeCandidate = this.mAttachedNodes[iOffset];
+					iAttachedNodeEdge = this.iAttachedNodeEdges[iOffset];
+
+					if (bExactMatch && iFindAttachmentFlags == iAttachmentFlagsCandidate || !bExactMatch && (iFindAttachmentFlags & iAttachmentFlagsCandidate) == iFindAttachmentFlags) {
+						iEdge = i;
+						iAttachment = j;
+						mAttachedNode = mAttachedNodeCandidate;
+						iAttachedNodeEdge = iAttachedNodeEdgeCandidate;
+						iAttachmentFlags = iAttachmentFlagsCandidate;
+
+						if (j < iAttachmentLength-1) {
+							iStartAttachment++;
+						} else {
+							iStartEdge = i+1;
+							iStartAttachment = 0;
+						}
+
+						return true;
+					}
+				}
+			}
+		} else {
+			if (iAttachment == -1) {
+				int iAttachmentLength = this.GetAttachmentsLength(iEdge);
+
+				for (int j=iStartAttachment; j<iAttachmentLength; j++) {
+					int iOffset = MAX_EDGE_ATTACHMENTS*iEdge + j;
+
+					iAttachmentFlagsCandidate = this.iAttachmentFlags[iOffset];
+					mAttachedNodeCandidate = this.mAttachedNodes[iOffset];
+					iAttachedNodeEdge = this.iAttachedNodeEdges[iOffset];
+
+					if (bExactMatch && iFindAttachmentFlags == iAttachmentFlagsCandidate || !bExactMatch && (iFindAttachmentFlags & iAttachmentFlagsCandidate) == iFindAttachmentFlags) {
+						iAttachment = j;
+						mAttachedNode = mAttachedNodeCandidate;
+						iAttachedNodeEdge = iAttachedNodeEdgeCandidate;
+						iAttachmentFlags = iAttachmentFlagsCandidate;
+
+						if (j < iAttachmentLength-1) {
+							iStartAttachment++;
+						}
+
+						return true;
+					}
+				}
+
+				return false;
+			}
+
+			this.GetAttachment(iEdge, iAttachment, mAttachedNodeCandidate, iAttachedNodeEdgeCandidate, iAttachmentFlagsCandidate);
+
+			if (bExactMatch && iFindAttachmentFlags == iAttachmentFlagsCandidate || !bExactMatch && (iFindAttachmentFlags & iAttachmentFlagsCandidate) == iFindAttachmentFlags) {
+				mAttachedNode = mAttachedNodeCandidate;
+				iAttachedNodeEdge = iAttachedNodeEdgeCandidate;
+				iAttachmentFlags = iFindAttachmentFlags;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool FindAttachedNode(NavNode mSearchNode, int &iEdge, int &iAttachment, int &iAttachmentFlags, int &iAttachedNodeEdge) {
+		for (int i=0; i<this.iVertices; i++) {
+			int iAttachmentLength = this.GetAttachmentsLength(i);
+
+			for (int j=0; j<iAttachmentLength; j++) {
+				int iOffset = MAX_EDGE_ATTACHMENTS*i + j;
+				if (this.mAttachedNodes[iOffset] == mSearchNode) {
+					iEdge = i;
+					iAttachment = j;
+					iAttachmentFlags = this.iAttachmentFlags[iOffset];
+					iAttachedNodeEdge = this.iAttachedNodeEdges[iOffset];
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	void ClearAttachments(int iEdge) {
 		if (iEdge < 0 || iEdge >= this.iVertices) {
 			ThrowError("Invalid edge index %d (count: %d)", iEdge, this.iVertices);
 		}
@@ -183,8 +458,91 @@ enum struct _NavNode {
 		return this.iAttachedNodes[iEdge];
 	}
 
+	int GetClosestEdge(float vecPoint[3]) {
+		float vecCenter[3];
+		this.GetEdgeCenter(0, vecCenter);
+
+		float fMinDist = GetVectorDistance(vecPoint, vecCenter);
+		int iMinEdge = 0;
+
+		for (int i=1; i<this.iVertices; i++) {
+			this.GetEdgeCenter(i, vecCenter);
+
+			float fDist = GetVectorDistance(vecPoint, vecCenter);
+			if (fDist < fMinDist) {
+				fMinDist = fDist;
+				iMinEdge = i;
+			}
+		}
+
+		return iMinEdge;
+	}
+
+	int GetFarthestEdge(float vecPoint[3]) {
+		float vecCenter[3];
+		this.GetEdgeCenter(0, vecCenter);
+
+		float fMaxDist = GetVectorDistance(vecPoint, vecCenter);
+		int iMaxEdge = 0;
+
+		for (int i=1; i<this.iVertices; i++) {
+			this.GetEdgeCenter(i, vecCenter);
+
+			float fDist = GetVectorDistance(vecPoint, vecCenter);
+			if (fDist > fMaxDist) {
+				fMaxDist = fDist;
+				iMaxEdge = i;
+			}
+		}
+
+		return iMaxEdge;
+	}
+
+	bool Contains(float vecPoint[3], float fSlack=0.0) {
+		if (vecPoint[0]<this.vecBBoxMins[0] || vecPoint[1]<this.vecBBoxMins[1] || vecPoint[2]<this.vecBBoxMins[2] ||
+			vecPoint[0]>this.vecBBoxMaxs[0] || vecPoint[1]>this.vecBBoxMaxs[1] || vecPoint[2]>this.vecBBoxMaxs[2]) {
+			return false;
+		}
+
+		// Move probe point closer to node origin by slack amount
+		// Equivalent to extending hull vertices outward by slack amount to check for probe
+		if (fSlack != 0.0) {
+			float vecVector[3];
+			SubtractVectors(vecPoint, this.vecOrigin, vecVector);
+			float fDist = GetVectorLength(vecVector);
+			NormalizeVector(vecVector, vecVector);
+			ScaleVector(vecVector, fDist-fSlack);
+			AddVectors(this.vecOrigin,  vecVector, vecPoint);
+		}
+
+		float vecVertex[3], vecFirstVertex[3], vecLastVertex[3];
+
+		this.GetVertex(0, vecLastVertex);
+		vecFirstVertex = vecLastVertex;
+
+		for (int i=1; i<this.iVertices; i++) {
+			this.GetVertex(i, vecVertex);
+
+// 			if (GetOrientation2D(vecPoint, vecLastVertex, vecVertex) != Orientation_CounterClockwise) {
+// 				return false;
+// 			}
+
+			if (GetOrientation2D(vecPoint, vecLastVertex, vecVertex) == Orientation_Clockwise) {
+				return false;
+			}
+
+			vecLastVertex = vecVertex;
+		}
+
+// 		return GetOrientation2D(vecPoint, vecLastVertex, vecFirstVertex) == Orientation_CounterClockwise;
+		return GetOrientation2D(vecPoint, vecLastVertex, vecFirstVertex) != Orientation_Clockwise;
+	}
+
 	void Update() {
 		static float vecVertices[MAX_VERTICES][3];
+		static float vecAngles[3];
+		static float vecEdgeCenter[3];
+
 		int iVertices = this.iVertices;
 
 		vecVertices[0][0] = this.vecVertices[0];
@@ -195,7 +553,11 @@ enum struct _NavNode {
 		this.vecBBoxMins[1] = this.vecBBoxMaxs[1] = this.vecVertices[1];
 		this.vecBBoxMins[2] = this.vecBBoxMaxs[2] = this.vecVertices[2];
 
-		float vecEdgeCenter[3];
+		GetVectorAngles(vecVertices[0], vecAngles);
+		this.vecVertexAngles[0] = vecAngles[0];
+		this.vecVertexAngles[1] = vecAngles[1];
+		this.vecVertexAngles[2] = vecAngles[2];
+
 		for (int i=1; i<iVertices; i++) {
 			int iVertexOffset = 3*i;
 			vecVertices[i][0] = this.vecVertices[iVertexOffset  ];
@@ -217,6 +579,11 @@ enum struct _NavNode {
 			this.vecBBoxMaxs[0] = vecVertices[i][0] > this.vecBBoxMaxs[0] ? vecVertices[i][0] : this.vecBBoxMaxs[0];
 			this.vecBBoxMaxs[1] = vecVertices[i][1] > this.vecBBoxMaxs[1] ? vecVertices[i][1] : this.vecBBoxMaxs[1];
 			this.vecBBoxMaxs[2] = vecVertices[i][2] > this.vecBBoxMaxs[2] ? vecVertices[i][2] : this.vecBBoxMaxs[2];
+
+			GetVectorAngles(vecVertices[i], vecAngles);
+			this.vecVertexAngles[iEdgeOffset  ] = vecAngles[0];
+			this.vecVertexAngles[iEdgeOffset+1] = vecAngles[1];
+			this.vecVertexAngles[iEdgeOffset+2] = vecAngles[2];
 		}
 
 		AddVectors(vecVertices[iVertices-1], vecVertices[0], vecEdgeCenter);
@@ -241,6 +608,7 @@ enum struct _NavNode {
 
 enum struct _NavMesh {
 	ArrayList hNavNodes;
+	ArrayList hVertexNodes;
 	Octree mOctree;
 	bool bGCFlag;
 }
@@ -254,6 +622,7 @@ enum Orientation {
 ArrayList g_hNavNodes;
 ArrayList g_hNavMeshes;
 
+StringMap g_hNavMeshesMap;
 bool g_bOctreeAvailable;
 
 public Plugin myinfo = {
@@ -269,6 +638,8 @@ public void OnPluginStart() {
 
 	g_hNavNodes = new ArrayList(sizeof(_NavNode));
 	g_hNavMeshes = new ArrayList(sizeof(_NavMesh));
+
+	g_hNavMeshesMap = new StringMap();
 }
 
 public void OnPluginEnd() {
@@ -312,43 +683,60 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErr
 	
 	SetupNavNatives();
 	SetupPathNatives();
+
+	return APLRes_Success;
 }
 
 // Navigation node natives
 
 void SetupNavNatives() {
-	CreateNative("NavNode.iVertices.get", 			Native_NavNode_GetVertices);
-	CreateNative("NavNode.iVertices.set", 			Native_NavNode_SetVertices);
-	CreateNative("NavNode.GetOrigin", 				Native_NavNode_GetOrigin);
-	CreateNative("NavNode.SetOrigin", 				Native_NavNode_SetOrigin);
-	CreateNative("NavNode.GetVertex", 				Native_NavNode_GetVertex);
-	CreateNative("NavNode.SetVertex", 				Native_NavNode_SetVertex);
-	CreateNative("NavNode.GetEdgeCenter", 			Native_NavNode_GetEdgeCenter);
+	CreateNative("NavNode.iVertices.get", 				Native_NavNode_GetVertices);
+	CreateNative("NavNode.iVertices.set", 				Native_NavNode_SetVertices);
+	CreateNative("NavNode.GetOrigin", 					Native_NavNode_GetOrigin);
+	CreateNative("NavNode.SetOrigin", 					Native_NavNode_SetOrigin);
+	CreateNative("NavNode.GetVertex", 					Native_NavNode_GetVertex);
+	CreateNative("NavNode.SetVertex", 					Native_NavNode_SetVertex);
+	CreateNative("NavNode.GetVertexAngles", 			Native_NavNode_GetVertexAngles);
+	CreateNative("NavNode.GetEdgeCenter", 				Native_NavNode_GetEdgeCenter);
+	CreateNative("NavNode.GetEdgeVertices", 			Native_NavNode_GetEdgeVertices);
+	CreateNative("NavNode.GetEdgeOverlap", 				Native_NavNode_GetEdgeOverlap);
+	CreateNative("NavNode.GetNearestEdgeProjection",	Native_NavNode_GetNearestEdgeProjection);
+	CreateNative("NavNode.GetHullProjection",			Native_NavNode_GetHullProjection);
 
-	CreateNative("NavNode.PushAttachment",			Native_NavNode_PushAttachment);
-	CreateNative("NavNode.EraseAttachment",			Native_NavNode_EraseAttachment);
-	CreateNative("NavNode.GetAttachment",			Native_NavNode_GetAttachment);
-	CreateNative("NavNode.SetAttachment",			Native_NavNode_SetAttachment);
-	CreateNative("NavNode.FindAttachment",			Native_NavNode_FindAttachment);
-	CreateNative("NavNode.ClearAttachments",		Native_NavNode_ClearAttachments);
-	CreateNative("NavNode.GetAttachmentsLength",	Native_NavNode_GetAttachmentsLength);
+	CreateNative("NavNode.PushAttachment",				Native_NavNode_PushAttachment);
+	CreateNative("NavNode.EraseAttachment",				Native_NavNode_EraseAttachment);
+	CreateNative("NavNode.GetAttachment",				Native_NavNode_GetAttachment);
+	CreateNative("NavNode.SetAttachment",				Native_NavNode_SetAttachment);
+	CreateNative("NavNode.FindAttachment",				Native_NavNode_FindAttachment);
+	CreateNative("NavNode.FindAttachmentWithFlags",		Native_NavNode_FindAttachmentWithFlags);
+	CreateNative("NavNode.FindAttachedNode",			Native_NavNode_FindAttachedNode);
+	CreateNative("NavNode.ClearAttachments",			Native_NavNode_ClearAttachments);
+	CreateNative("NavNode.GetAttachmentsLength",		Native_NavNode_GetAttachmentsLength);
 
-	CreateNative("NavNode.Contains", 				Native_NavNode_Contains);
-	CreateNative("NavNode.Update",					Native_NavNode_Update);
+	CreateNative("NavNode.GetClosestEdge",				Native_NavNode_GetClosestEdge);
+	CreateNative("NavNode.GetFarthestEdge",				Native_NavNode_GetFarthestEdge);
 
-	CreateNative("NavNode.Instance", 				Native_NavNode_Instance);
-	CreateNative("NavNode.Destroy", 				Native_NavNode_Destroy);
+	CreateNative("NavNode.Contains", 					Native_NavNode_Contains);
+	CreateNative("NavNode.Update",						Native_NavNode_Update);
 
-	CreateNative("NavMesh.GetNodes",	 			Native_NavMesh_GetNodes);
-	CreateNative("NavMesh.GetNodesInRange",			Native_NavMesh_GetNodesInRange);
-	CreateNative("NavMesh.GetNearestNodeInRange",	Native_NavMesh_GetNearestNodeInRange);
-	CreateNative("NavMesh.UpdateIndex",				Native_NavMesh_UpdateIndex);
+	CreateNative("NavNode.Instance", 					Native_NavNode_Instance);
+	CreateNative("NavNode.Destroy", 					Native_NavNode_Destroy);
 
-	CreateNative("NavMesh.Instance", 				Native_NavMesh_Instance);
-	CreateNative("NavMesh.Destroy", 				Native_NavMesh_Destroy);
+	CreateNative("NavMesh.GetNodes",	 				Native_NavMesh_GetNodes);
+	CreateNative("NavMesh.GetNodesInRange",				Native_NavMesh_GetNodesInRange);
+	CreateNative("NavMesh.GetNearestNodeInRange",		Native_NavMesh_GetNearestNodeInRange);
+	CreateNative("NavMesh.UpdateIndex",					Native_NavMesh_UpdateIndex);
 
-	CreateNative("NavMesh.LoadNavFile", 			Native_NavMesh_LoadNavFile);
-	CreateNative("NavMesh.SaveNavFile", 			Native_NavMesh_SaveNavFile);
+	CreateNative("NavMesh.Instance", 					Native_NavMesh_Instance);
+	CreateNative("NavMesh.Destroy", 					Native_NavMesh_Destroy);
+
+	CreateNative("NavMesh.LoadNavFile", 				Native_NavMesh_LoadNavFile);
+	CreateNative("NavMesh.SaveNavFile", 				Native_NavMesh_SaveNavFile);
+
+	CreateNative("SMBL_RegisterNavMesh",				Native_RegisterNavMesh);
+	CreateNative("SMBL_DeregisterNavMesh",				Native_DeregisterNavMesh);
+	CreateNative("SMBL_DeregisterAllNavMeshes",			Native_DeregisterAllNavMeshes);
+	CreateNative("SMBL_GetNavMesh",						Native_GetNavMesh);
 }
 
 public int Native_NavNode_GetOrigin(Handle hPlugin, int iArgC) {
@@ -358,6 +746,8 @@ public int Native_NavNode_GetOrigin(Handle hPlugin, int iArgC) {
 	g_hNavNodes.GetArray(iThis, eNavNode);
 
 	SetNativeArray(2, eNavNode.vecOrigin, sizeof(_NavNode::vecOrigin));
+
+	return 0;
 }
 
 public int Native_NavNode_SetOrigin(Handle hPlugin, int iArgC) {
@@ -369,6 +759,8 @@ public int Native_NavNode_SetOrigin(Handle hPlugin, int iArgC) {
 	GetNativeArray(2, eNavNode.vecOrigin, sizeof(_NavNode::vecOrigin));
 	
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
 public int Native_NavNode_GetVertex(Handle hPlugin, int iArgC) {
@@ -386,6 +778,8 @@ public int Native_NavNode_GetVertex(Handle hPlugin, int iArgC) {
 	eNavNode.GetVertex(iVertex, vecVertex);
 
 	SetNativeArray(3, vecVertex, sizeof(vecVertex));
+
+	return 0;
 }
 
 public int Native_NavNode_SetVertex(Handle hPlugin, int iArgC) {
@@ -405,12 +799,33 @@ public int Native_NavNode_SetVertex(Handle hPlugin, int iArgC) {
 	eNavNode.SetVertex(iVertex, vecVertex);
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
 public int Native_NavNode_GetVertices(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 
 	return g_hNavNodes.Get(iThis, _NavNode::iVertices);
+}
+
+public int Native_NavNode_GetVertexAngles(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iVertex = GetNativeCell(2);
+
+	if (iVertex < 0 || iVertex >= MAX_VERTICES) {
+		ThrowError("Invalid vertex index");
+	}
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecAngles[3];
+	eNavNode.GetVertexAngles(iVertex, vecAngles);
+
+	SetNativeArray(3, vecAngles, sizeof(vecAngles));
+
+	return 0;
 }
 
 public int Native_NavNode_SetVertices(Handle hPlugin, int iArgC) {
@@ -422,6 +837,8 @@ public int Native_NavNode_SetVertices(Handle hPlugin, int iArgC) {
 	}
 
 	g_hNavNodes.Set(iThis, iVertices, _NavNode::iVertices);
+
+	return 0;
 }
 
 public int Native_NavNode_GetEdgeCenter(Handle hPlugin, int iArgC) {
@@ -439,6 +856,99 @@ public int Native_NavNode_GetEdgeCenter(Handle hPlugin, int iArgC) {
 	eNavNode.GetEdgeCenter(iEdge, vecPoint);
 
 	SetNativeArray(3, vecPoint, sizeof(vecPoint));
+
+	return 0;
+}
+
+public int Native_NavNode_GetEdgeVertices(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iEdge = GetNativeCell(2);
+
+	if (iEdge < 0 || iEdge >= MAX_VERTICES) {
+		ThrowError("Invalid edge index");
+	}
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecVertexA[3], vecVertexB[3];
+	eNavNode.GetEdgeVertices(iEdge, vecVertexA,vecVertexB);
+
+	SetNativeArray(3, vecVertexA, sizeof(vecVertexA));
+	SetNativeArray(4, vecVertexB, sizeof(vecVertexB));
+
+	return 0;
+}
+
+public int Native_NavNode_GetEdgeOverlap(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iEdge = GetNativeCell(2);
+
+	NavNode mOtherNode = GetNativeCell(3);
+	int iOtherEdge = GetNativeCell(4);
+
+	if (iEdge < 0 || iEdge >= MAX_VERTICES) {
+		ThrowError("Invalid edge index");
+	}
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecVertexA[3], vecVertexB[3];
+	eNavNode.GetEdgeOverlap(iEdge, mOtherNode, iOtherEdge, vecVertexA,vecVertexB);
+
+	SetNativeArray(5, vecVertexA, sizeof(vecVertexA));
+	SetNativeArray(6, vecVertexB, sizeof(vecVertexB));
+
+	return 0;
+}
+
+public any Native_NavNode_GetNearestEdgeProjection(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecInteralPoint[3];
+	GetNativeArray(2, vecInteralPoint, sizeof(vecInteralPoint));
+
+	float vecEdgeProj[3];
+
+	int iEdge = GetNativeCellRef(4);
+	int iAttachment = GetNativeCellRef(5);
+	int iAttachmentFlags = GetNativeCell(6);
+
+	float vecDirection[3];
+	GetNativeArray(7, vecDirection, sizeof(vecDirection));
+
+	float fDist = eNavNode.GetNearestEdgeProjection(vecInteralPoint, vecEdgeProj, iEdge, iAttachment, iAttachmentFlags, vecDirection);
+
+	SetNativeArray(3, vecEdgeProj, sizeof(vecEdgeProj));
+	SetNativeCellRef(4, iEdge);
+	SetNativeCellRef(5, iAttachment);
+
+	return fDist;
+}
+
+
+public any Native_NavNode_GetHullProjection(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecPoint[3];
+	GetNativeArray(2, vecPoint, sizeof(vecPoint));
+
+	float vecHullPoint[3];
+	int iEdge;
+
+	float fDistance = eNavNode.GetHullProjection(vecPoint, vecHullPoint, iEdge);
+
+	SetNativeArray(3, vecHullPoint, sizeof(vecHullPoint));
+	SetNativeCellRef(4, iEdge);
+
+	return fDistance;
 }
 
 public int Native_NavNode_PushAttachment(Handle hPlugin, int iArgC) {
@@ -469,20 +979,72 @@ public int Native_NavNode_EraseAttachment(Handle hPlugin, int iArgC) {
 	eNavNode.EraseAttachment(iEdge, iAttachment);
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
 public int Native_NavNode_FindAttachment(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 	int iEdge = GetNativeCell(2);
-	NavNode mNavNode = GetNativeCell(3);
+	NavNode mSearchNode = GetNativeCell(3);
 	int iStart = GetNativeCell(4);
 
 	_NavNode eNavNode;
 	g_hNavNodes.GetArray(iThis, eNavNode);
 
-	int iAttachment = eNavNode.FindAttachment(iEdge, mNavNode, iStart);
+	int iAttachment = eNavNode.FindAttachment(iEdge, mSearchNode, iStart);
 
 	return iAttachment;
+}
+
+public any Native_NavNode_FindAttachmentWithFlags(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iFindAttachmentFlags = GetNativeCell(2);
+	bool bExactMatch = GetNativeCell(3);
+	int iEdge = GetNativeCellRef(4);
+	int iAttachment = GetNativeCellRef(5);
+	NavNode mAttachedNode = GetNativeCellRef(6);
+	int iAttachedNodeEdge = GetNativeCellRef(7);
+	int iAttachmentFlags = GetNativeCellRef(8);
+	int iStartEdge = GetNativeCellRef(9);
+	int iStartAttachment = GetNativeCellRef(10);
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	bool bFound = eNavNode.FindAttachmentWithFlags(iFindAttachmentFlags, bExactMatch, iEdge, iAttachment, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags, iStartEdge, iStartAttachment);
+
+	SetNativeCellRef(4, iEdge);
+	SetNativeCellRef(5, iAttachment);
+	SetNativeCellRef(6, mAttachedNode);
+	SetNativeCellRef(7, iAttachedNodeEdge);
+	SetNativeCellRef(8, iAttachmentFlags);
+	SetNativeCellRef(9, iStartEdge);
+	SetNativeCellRef(10, iStartAttachment);
+
+	return bFound;
+}
+
+public any Native_NavNode_FindAttachedNode(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	NavNode mSearchNode = GetNativeCell(2);
+	int iEdge = GetNativeCellRef(3);
+	int iAttachment = GetNativeCellRef(4);
+	int iAttachmentFlags = GetNativeCellRef(5);
+	int iAttachedNodeEdge = GetNativeCellRef(6);
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	if (eNavNode.FindAttachedNode(mSearchNode, iEdge, iAttachment, iAttachmentFlags, iAttachedNodeEdge)) {
+		SetNativeCellRef(3, iEdge);
+		SetNativeCellRef(4, iAttachment);
+		SetNativeCellRef(5, iAttachmentFlags);
+		SetNativeCellRef(6, iAttachedNodeEdge);
+		return true;
+	}
+
+	return false;
 }
 
 public int Native_NavNode_GetAttachment(Handle hPlugin, int iArgC) {
@@ -501,6 +1063,8 @@ public int Native_NavNode_GetAttachment(Handle hPlugin, int iArgC) {
 	SetNativeCellRef(4, mAttachedNode);
 	SetNativeCellRef(5, iAttachedNodeEdge);
 	SetNativeCellRef(6, iAttachmentFlags);
+
+	return 0;
 }
 
 public int Native_NavNode_SetAttachment(Handle hPlugin, int iArgC) {
@@ -517,6 +1081,8 @@ public int Native_NavNode_SetAttachment(Handle hPlugin, int iArgC) {
 	eNavNode.SetAttachment(iEdge, iAttachment, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags);
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
 public int Native_NavNode_GetAttachmentsLength(Handle hPlugin, int iArgC) {
@@ -529,6 +1095,30 @@ public int Native_NavNode_GetAttachmentsLength(Handle hPlugin, int iArgC) {
 	return eNavNode.GetAttachmentsLength(iEdge);
 }
 
+public int Native_NavNode_GetClosestEdge(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	float vecPoint[3];
+	GetNativeArray(2, vecPoint, sizeof(vecPoint));
+
+	return eNavNode.GetClosestEdge(vecPoint);
+}
+
+public int Native_NavNode_GetFarthestEdge(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	float vecPoint[3];
+	GetNativeArray(2, vecPoint, sizeof(vecPoint));
+
+	_NavNode eNavNode;
+	g_hNavNodes.GetArray(iThis, eNavNode);
+
+	return eNavNode.GetFarthestEdge(vecPoint);
+}
+
 public int Native_NavNode_ClearAttachments(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 	int iEdge = GetNativeCell(2);
@@ -539,10 +1129,13 @@ public int Native_NavNode_ClearAttachments(Handle hPlugin, int iArgC) {
 	eNavNode.ClearAttachments(iEdge);
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
-public int Native_NavNode_Contains(Handle hPlugin, int iArgC) {
+public any Native_NavNode_Contains(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
+	float fSlack = GetNativeCell(2);
 
 	_NavNode eNavNode;
 	g_hNavNodes.GetArray(iThis, eNavNode);
@@ -550,26 +1143,7 @@ public int Native_NavNode_Contains(Handle hPlugin, int iArgC) {
 	float vecPoint[3];
 	GetNativeArray(2, vecPoint, sizeof(vecPoint));
 
-	if (vecPoint[0]<eNavNode.vecBBoxMins[0] || vecPoint[1]<eNavNode.vecBBoxMins[1] || vecPoint[2]<eNavNode.vecBBoxMins[2] ||
-		vecPoint[0]>eNavNode.vecBBoxMaxs[0] || vecPoint[1]>eNavNode.vecBBoxMaxs[1] || vecPoint[2]>eNavNode.vecBBoxMaxs[2]) {
-		return false;
-	}
-	
-	float vecVertex[3], vecFirstVertex[3], vecLastVertex[3];
-	eNavNode.GetVertex(0, vecLastVertex);
-	vecFirstVertex = vecLastVertex;
-
-	for (int i=1; i<eNavNode.iVertices; i++) {
-		eNavNode.GetVertex(i, vecVertex);
-
-		if (GetOrientation2D(vecPoint, vecLastVertex, vecVertex) != Orientation_CounterClockwise) {
-			return false;
-		}
-
-		vecLastVertex = vecVertex;
-	}
-
-	return GetOrientation2D(vecPoint, vecLastVertex, vecFirstVertex) == Orientation_CounterClockwise;
+	return eNavNode.Contains(vecPoint, fSlack);
 }
 
 public int Native_NavNode_Update(Handle hPlugin, int iArgC) {
@@ -581,6 +1155,8 @@ public int Native_NavNode_Update(Handle hPlugin, int iArgC) {
 	eNavNode.Update();
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
+
+	return 0;
 }
 
 public any Native_NavNode_Instance(Handle hPlugin, int iArgC) {
@@ -599,7 +1175,7 @@ public any Native_NavNode_Instance(Handle hPlugin, int iArgC) {
 public any Native_NavNode_Destroy(Handle hPlugin, int iArgC) {
 	int iNavNodeIdx = GetNativeCell(1)-1;
 	if (iNavNodeIdx < 0 || iNavNodeIdx >= g_hNavNodes.Length) {
-		return;
+		return 0;
 	}
 
 	g_hNavNodes.Set(iNavNodeIdx, true, _NavNode::bGCFlag);
@@ -610,12 +1186,14 @@ public any Native_NavNode_Destroy(Handle hPlugin, int iArgC) {
 		for (int i=iNavNodeIdx; i>0; i--) {
 			if (!g_hNavNodes.Get(i-1, _NavNode::bGCFlag)) {
 				g_hNavNodes.Resize(i);
-				return;
+				return 0;
 			}
 		}
 
 		g_hNavNodes.Clear();
 	}
+
+	return 0;
 }
 
 // Navigation mesh natives
@@ -698,39 +1276,34 @@ public any Native_NavMesh_GetNearestNodeInRange(Handle hPlugin, int iArgC) {
 
 	bool bCheckHulls = GetNativeCell(4);
 
+	float fSlack = GetNativeCell(5);
+
+	ArrayList hNavNodes;
+
 	if (g_bOctreeAvailable) {
 		Octree mOctree = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::mOctree);
 		if (!mOctree) {
 			return NULL_NAV_NODE;
 		}
 
-		ArrayList hResults = new ArrayList();
-		int iNodesFound = mOctree.Find(vecPoint, fRadius, hResults, true);
+		hNavNodes = new ArrayList();
+		int iNodesFound = mOctree.Find(vecPoint, fRadius, hNavNodes, true);
 		if (bCheckHulls) {
 			for (int i=0; i<iNodesFound; i++) {
-				NavNode mNavNode = hResults.Get(i);
-				if (!mNavNode.Contains(vecPoint)) {
-					hResults.Erase(i--);
+				NavNode mNavNode = hNavNodes.Get(i);
+				if (!mNavNode.Contains(vecPoint, fSlack)) {
+					hNavNodes.Erase(i--);
 					iNodesFound--;
 				}
 			}
 		}
-
-		if (iNodesFound) {
-			NavNode mNearestNode = hResults.Get(0);
-			delete hResults;
-			return mNearestNode;
-		}
-
-		delete hResults;
-
-		return NULL_NAV_NODE;
+	} else {
+		hNavNodes = view_as<ArrayList>(g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes)).Clone();
 	}
-
-	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
 
 	int iNavNodesLength = hNavNodes.Length;
 	if (!iNavNodesLength) {
+		delete hNavNodes;
 		return NULL_NAV_NODE;
 	}
 
@@ -750,6 +1323,7 @@ public any Native_NavMesh_GetNearestNodeInRange(Handle hPlugin, int iArgC) {
 		}
 	}
 
+	delete hNavNodes;
 	return mNearestNode;
 }
 
@@ -758,6 +1332,8 @@ public int Native_NavMesh_UpdateIndex(Handle hPlugin, int iArgC) {
 		int iNavMeshIdx = GetNativeCell(1)-1;
 		BuildSpatialIdx(iNavMeshIdx);
 	}
+
+	return 0;
 }
 
 public any Native_NavMesh_Instance(Handle hPlugin, int iArgC) {
@@ -777,7 +1353,7 @@ public any Native_NavMesh_Instance(Handle hPlugin, int iArgC) {
 public any Native_NavMesh_Destroy(Handle hPlugin, int iArgC) {
 	int iNavMeshIdx = GetNativeCell(1)-1;
 	if (iNavMeshIdx < 0 || iNavMeshIdx >= g_hNavMeshes.Length) {
-		return;
+		return 0;
 	}
 
 	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
@@ -801,17 +1377,21 @@ public any Native_NavMesh_Destroy(Handle hPlugin, int iArgC) {
 		for (int i=iNavMeshIdx; i>0; i--) {
 			if (!g_hNavMeshes.Get(i-1, _NavMesh::bGCFlag)) {
 				g_hNavMeshes.Resize(i);
-				return;
+				return 0;
 			}
 		}
 
 		g_hNavMeshes.Clear();
 	}
+
+	return 0;
 }
 
 public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	char sFilePath[PLATFORM_MAX_PATH];
 	GetNativeString(1, sFilePath, sizeof(sFilePath));
+
+	float fTimestamp = GetEngineTime();
 
 	File hFile = OpenFile(sFilePath, "rb");
 	if (hFile == null) {
@@ -916,9 +1496,10 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	
 	delete hFile;
 
+	PrintToServer("[SMBL] Loaded nav mesh with %d nodes and %d attachments in %.3f ms", iNavNodesLength, iAttachmentCount, 1000*(GetEngineTime()-fTimestamp));
+
 	mNavMesh.UpdateIndex();
 
-	PrintToServer("[SMBL] Loaded nav mesh with %d nodes and %d attachments", iNavNodesLength, iAttachmentCount);
 
 	return mNavMesh;
 }
@@ -1038,9 +1619,82 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 	return true;
 }
 
+public int Native_RegisterNavMesh(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	NavMesh mNavMesh = GetNativeCell(2);
+
+	if (g_hNavMeshesMap.SetValue(sIdentifier, mNavMesh, false)) {
+		PrintToServer("SMBL registered navigation mesh: %s", sIdentifier);
+		return true;
+	}
+
+	PrintToServer("SMBL cannot register navigation mesh: %s (duplicate?)", sIdentifier);
+
+	return false;
+}
+
+public int Native_DeregisterNavMesh(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	bool bDestroy = GetNativeCell(2);
+	if (bDestroy) {
+		NavMesh mNavMesh;
+		if (!g_hNavMeshesMap.GetValue(sIdentifier, mNavMesh)) {
+			PrintToServer("SMBL cannot find navigation mesh to deregister: %s", sIdentifier);
+			return false;
+		}
+
+		PrintToServer("SMBL deregistered navigation mesh: %s", sIdentifier);
+
+		NavMesh.Destroy(mNavMesh);
+	}
+
+	return g_hNavMeshesMap.Remove(sIdentifier);
+}
+
+public int Native_DeregisterAllNavMeshes(Handle hPlugin, int iArgC) {
+	bool bDestroy = GetNativeCell(1);
+	if (bDestroy) {
+		StringMapSnapshot hSnapshot = g_hNavMeshesMap.Snapshot();
+		int iSnapshotLength = hSnapshot.Length;
+		char sIdentifier[64];
+
+		for (int i=0; i<iSnapshotLength; i++) {
+			hSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+			NavMesh mNavMesh;
+			if (g_hNavMeshesMap.GetValue(sIdentifier, mNavMesh)) {
+				NavMesh.Destroy(mNavMesh);
+			}
+		}
+
+		delete hSnapshot;
+
+		PrintToServer("SMBL deregistered %d navigation meshes", g_hNavMeshesMap.Size);
+	}
+
+	g_hNavMeshes.Clear();
+
+	return 0;
+}
+
+public any Native_GetNavMesh(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	NavMesh mNavMesh;
+	g_hNavMeshesMap.GetValue(sIdentifier, mNavMesh);
+
+	return mNavMesh;
+}
+
 // Helpers
 
 void BuildSpatialIdx(int iNavMeshIdx) {
+	float fTimestamp = GetEngineTime();
+
 	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
 
 	float vecMin[3] = {POSITIVE_INFINITY, ...};
@@ -1078,6 +1732,7 @@ void BuildSpatialIdx(int iNavMeshIdx) {
 	float fMaxHalfWidth = vecHalfWidth[0];
 	fMaxHalfWidth = vecHalfWidth[1] > fMaxHalfWidth ? vecHalfWidth[1] : fMaxHalfWidth;
 	fMaxHalfWidth = vecHalfWidth[2] > fMaxHalfWidth ? vecHalfWidth[2] : fMaxHalfWidth;
+	fMaxHalfWidth += 50.0; // Prevents Octree out of bounds
 
 	mOctree = Octree.Instance(vecCenter, fMaxHalfWidth, 3);
 
@@ -1091,16 +1746,6 @@ void BuildSpatialIdx(int iNavMeshIdx) {
 	}
 
 	g_hNavMeshes.Set(iNavMeshIdx, mOctree, _NavMesh::mOctree);
-}
 
-// Adapted from https://www.geeksforgeeks.org/orientation-3-ordered-points/
-Orientation GetOrientation2D(float vec1[3], float vec2[3], float vec3[3]) {
-	float fVal =	(vec2[1]-vec1[1]) * (vec3[0]-vec2[0]) - 
-					(vec2[0]-vec1[0]) * (vec3[1]-vec2[1]);
-
-	if (FloatAbs(fVal) < 0.0001) {
-		return Orientation_Colinear;
-	}
-
-	return fVal > 0 ? Orientation_Clockwise : Orientation_CounterClockwise;
+	PrintToServer("[SMBL] Built nav %d spatial index in %.3f ms", iNavMeshIdx, 1000*(GetEngineTime()-fTimestamp));
 }
