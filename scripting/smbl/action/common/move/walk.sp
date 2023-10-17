@@ -32,11 +32,11 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		return mOp._Abort("missing navigation mesh init parameter");
 	}
 
+	Entity_GetAbsOrigin(mBot.iEntity, vecEntity);
+
 	bool bBeelineStart, bBeelineEnd;
 
 	if (!mStartNode) {
-		Entity_GetAbsOrigin(mBot.iEntity, vecEntity);
-
 		mStartNode = mNavMesh.GetNearestNodeInRange(vecEntity, NODE_PROXIMITY, true, 20.0);
 		if (!mStartNode) {
 			mStartNode = mNavMesh.GetNearestNodeInRange(vecEntity, 4*NODE_PROXIMITY);
@@ -47,8 +47,13 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mStartNode) {
-		mStartNode.GetHullProjection(vecEntity, vecStart);
-		PrintToServer("Projected start to hull point: (%.1f, %.1f, %.1f)", vecStart[0], vecStart[1], vecStart[2]);
+		if (mStartNode.Contains(vecEntity)) {
+			vecStart = vecEntity;
+		} else {
+			mStartNode.GetHullProjection(vecEntity, vecStart);
+			PrintToServer("Projected start to hull point: (%.1f, %.1f, %.1f)", vecStart[0], vecStart[1], vecStart[2]);
+		}
+
 		eOpData.vecLastPos = vecStart;
 	}
 

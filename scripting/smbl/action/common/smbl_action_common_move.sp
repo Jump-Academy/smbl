@@ -1,6 +1,6 @@
 #pragma semicolon 1
 
-#define DEBUG
+// #define DEBUG
 
 #define PLUGIN_AUTHOR "AI"
 #define PLUGIN_VERSION "0.1.0"
@@ -40,6 +40,7 @@ int g_iHalo;
 #endif
 
 #include "common/move/walk.sp"
+#include "common/move/walkfollow.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Common Bot Actions Library: Move",
@@ -91,6 +92,7 @@ public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, TFTeam 
 
 void Setup_Move() {
 	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
+	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
 }
 
 #if defined DEBUG
