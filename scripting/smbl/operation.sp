@@ -95,9 +95,14 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 					return InternalAbort(mBot, mOp, eOp, "initialization function call returned error code %d", iCallError);
 				}
 
-				if (iReturn == OpRet_Abort) {
-					m_hOperations.GetArray(iOpIdx, eOp);
-					return InternalAbort(mBot, mOp, eOp, "initialization aborted (%s)", eOp.sError);
+				switch (iReturn) {
+					case OpRet_Bypass: {
+						return OpRet_Continue;
+					}
+					case OpRet_Abort: {
+						m_hOperations.GetArray(iOpIdx, eOp);
+						return InternalAbort(mBot, mOp, eOp, "initialization aborted (%s)", eOp.sError);
+					}
 				}
 			}
 
@@ -146,6 +151,9 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		}
 
 		switch (iOpRet) {
+			case OpRet_Bypass: {
+				return OpRet_Continue;
+			}
 			case OpRet_Restart: {
 				m_hOperations.SetArray(iOpIdx, eOp);
 				mOp.Restart();
@@ -392,7 +400,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		OpRet iOpRet;
 		Call_Finish(iOpRet);
 
-		if (iOpRet != OpRet_Continue) {
+		if (iOpRet == OpRet_Abort) {
 			return InternalAbort(mBot, mOp, eOp, "step callback returned abort");
 		}
 
@@ -619,7 +627,7 @@ public any Native_Operation_IsValid(Handle hPlugin, int iArgC) {
 		return false;
 	}
 
-	return !m_hOperations.Get(iThis, _Operation::bGCFlag); // && m_hOperations.Get(iThis, _Operation::iOpState) == OpState_Valid;
+	return !m_hOperations.Get(iThis, _Operation::bGCFlag);
 }
 
 public any Native_Operation_AddSubOperation(Handle hPlugin, int iArgC) {

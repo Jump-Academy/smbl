@@ -15,6 +15,7 @@ enum OpState {
 }
 
 enum OpRet {
+	OpRet_Bypass,
 	OpRet_Continue,
 	OpRet_Handled,
 	OpRet_Restart,
