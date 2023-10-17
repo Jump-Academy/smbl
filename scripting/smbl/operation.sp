@@ -35,7 +35,7 @@ enum struct _Operation {
 	ArrayList hSubOpRefs;	// Operation references
 
 	float fStartTime;
-	any aData[16];
+	OpData eOpData;
 
 	char sError[256];
 
@@ -87,7 +87,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 				Call_PushCell(eOp.hInitParams);
 				Call_PushCell(eOp.hSequences);
 				Call_PushCell(eOp.hSubOpRefs);
-				Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 				OpRet iReturn;
 				int iCallError = Call_Finish(iReturn);
@@ -135,7 +135,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		Call_PushCell(mBot);
 		Call_PushCell(mOp);
 		Call_PushCell(eOp.hSequences);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 		Call_PushCell(eOp.fStartTime);
 
 		OpRet iOpRet;
@@ -175,7 +175,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		Call_StartFunction(eOp.hPlugin, eOp.fnPreRun);
 		Call_PushCell(mBot);
 		Call_PushCell(mOp);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 		OpRet iOpRet;
 		int iCallError = Call_Finish(iOpRet);
@@ -219,8 +219,8 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		Call_StartFunction(eOp.hPlugin, eSeq.fnRun);
 		Call_PushCell(mBot);
 		Call_PushCell(mOp);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
-		Call_PushArrayEx(eSeq.aData, sizeof(Sequence::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eSeq.eSeqData, sizeof(Sequence::eSeqData), SM_PARAM_COPYBACK);
 		Call_PushCell(eSeq.fStartTime);
 
 		int iCallError = Call_Finish(iReturn);
@@ -350,7 +350,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 		Call_StartFunction(eOp.hPlugin, eOp.fnPostRun);
 		Call_PushCell(mBot);
 		Call_PushCell(mOp);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 		OpRet iOpRet;
 		int iCallError = Call_Finish(iOpRet);
@@ -429,6 +429,9 @@ void SetupOperationNatives() {
 	CreateNative("Operation.hSubOpRefs.get",			Native_Operation_GetSubOpRefs);
 	CreateNative("Operation.fStartTime.get",			Native_Operation_GetStartTime);
 	CreateNative("Operation.GetIdentifier",				Native_Operation_GetIdentifier);
+
+	CreateNative("Operation.GetData",					Native_Operation_GetData);
+	CreateNative("Operation.SetData",					Native_Operation_SetData);
 
 	CreateNative("Operation.GetError",					Native_Operation_GetError);
 	CreateNative("Operation.SetError",					Native_Operation_SetError);
@@ -534,6 +537,31 @@ public any Native_Operation_GetIdentifier(Handle hPlugin, int iArgC) {
 	m_hOperations.GetString(view_as<int>(mOp)-1, sIdentifier, sizeof(sIdentifier));
 
 	SetNativeString(2, sIdentifier, iMaxLength);
+
+	return 0;
+}
+
+
+public any Native_Operation_GetData(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+
+	_Operation eOp;
+	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
+
+	SetNativeArray(2, eOp.eOpData, sizeof(OpData));
+
+	return 0;
+}
+
+public any Native_Operation_SetData(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+
+	_Operation eOp;
+	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
+
+	GetNativeArray(2, eOp.eOpData, sizeof(OpData));
+
+	m_hOperations.SetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
 
 	return 0;
 }
@@ -734,7 +762,7 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 				Call_PushCell(eOp.hInitParams);
 				Call_PushCell(eOp.hSequences);
 				Call_PushCell(eOp.hSubOpRefs);
-				Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 				OpRet iReturn;
 				int iCallError = Call_Finish(iReturn);
@@ -795,7 +823,7 @@ public any Native_Operation_Interrupt(Handle hPlugin, int iArgC) {
 				Call_StartFunction(eOp.hPlugin, eOp.fnSuspend);
 				Call_PushCell(eOp.mBot);
 				Call_PushCell(mOp);
-				Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 				OpRet iOpRet;
 				int iCallError = Call_Finish(iOpRet);
@@ -845,7 +873,7 @@ public any Native_Operation_Resume(Handle hPlugin, int iArgC) {
 				Call_StartFunction(eOp.hPlugin, eOp.fnResume);
 				Call_PushCell(eOp.mBot);
 				Call_PushCell(mOp);
-				Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 				OpRet iOpRet;
 				int iCallError = Call_Finish(iOpRet);
@@ -912,7 +940,7 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 		Call_PushCell(eOp.mBot);
 		Call_PushCell(mOp);
 		Call_PushCell(eOp.hSequences);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 		int iCallError = Call_Finish();
 		if (iCallError != SP_ERROR_NONE) {
@@ -967,7 +995,7 @@ public any Native_Operation_Restart(Handle hPlugin, int iArgC) {
 		Call_PushCell(eOp.mBot);
 		Call_PushCell(mOp);
 		Call_PushCell(eOp.hSequences);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 		int iCallError = Call_Finish();
 		if (iCallError != SP_ERROR_NONE) {
@@ -1221,7 +1249,7 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 		Call_PushCell(eOp.mBot);
 		Call_PushCell(mOp);
 		Call_PushCell(eOp.hSequences);
-		Call_PushArrayEx(eOp.aData, sizeof(_Operation::aData), SM_PARAM_COPYBACK);
+		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
 
 		int iCallError = Call_Finish();
 		if (iCallError != SP_ERROR_NONE) {
@@ -1305,7 +1333,6 @@ OpRet InternalAbort(Bot mBot, Operation mOperation, _Operation eOp, char[] sForm
 	Call_PushCell(mOperation);
 	Call_PushCell(OpState_Abort);
 	Call_Finish();
-
 
 	Call_StartForward(eOp.hAbortForward);
 	Call_PushCell(mBot);

@@ -55,7 +55,6 @@ void SetupBotNatives() {
 	CreateNative("SMBL_GetClientBot", 			Native_GetClientBot);
 }
 
-
 public int Native_Bot_GetActive(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 
@@ -149,7 +148,6 @@ public int Native_RemoveController(Handle hPlugin, int iArgC) {
 
 	return 0;
 }
-
 
 public any Native_Bot_GetMainOp(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;

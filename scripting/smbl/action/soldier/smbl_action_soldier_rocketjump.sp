@@ -29,19 +29,6 @@
 
 #include "soldier/rocketjump/wallclimb.sp"
 
-enum struct OpData {
-	float vecDest[3];
-	float vecWallAng[3];
-	float vecWallNormalYaw;
-	float vecWallNormal[3];
-	any aPadding[6];
-}
-
-enum struct SeqData {
-	float vecDest[3];
-	any aPadding[13];
-}
-
 public Plugin myinfo = {
 	name = "SMBL Soldier Actions Library: Rocket Jump",
 	author = PLUGIN_AUTHOR,

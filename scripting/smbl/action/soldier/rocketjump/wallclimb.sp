@@ -1,4 +1,15 @@
-OpRet WallClimb_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData) {
+enum struct OpData_WallClimb {
+	float vecDest[3];
+	float vecWallAng[3];
+	any aPadding[10];
+}
+
+enum struct SeqData_WallClimb {
+	float vecDest[3];
+	any aPadding[13];
+}
+
+OpRet WallClimb_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_WallClimb eOpData) {
 	int iEntity = mBot.iEntity;
 
 	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
@@ -57,18 +68,19 @@ OpRet WallClimb_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 
 	eOpData.vecDest = vecDest;
 
-	Sequence eSeq;
-	eSeq.fnRun = WallClimb_Walk;
-	eSeq.iSeq = view_as<Seq>(0);
-
 	float vecVertexA[3], vecVertexB[3];
 	mStartNode.GetEdgeOverlap(iEdge, mEndNode, iAttachedNodeEdge, vecVertexA, vecVertexB);
 
-	eSeq.aData[0] = 0.5 * (vecVertexA[0] + vecVertexB[0]);
-	eSeq.aData[1] = 0.5 * (vecVertexA[1] + vecVertexB[1]);
-	eSeq.aData[2] = vecVertexA[2];
+	SeqData_WallClimb eSeqData;
+	eSeqData.vecDest[0] = 0.5 * (vecVertexA[0] + vecVertexB[0]);
+	eSeqData.vecDest[1] = 0.5 * (vecVertexA[1] + vecVertexB[1]);
+	eSeqData.vecDest[2] = vecVertexA[2];
 
-	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.1f %.1f %.1f]", eSeq.aData[0], eSeq.aData[1], eSeq.aData[2]);
+	Sequence eSeq;
+	eSeq.fnRun = WallClimb_Walk;
+	eSeq.iSeq = view_as<Seq>(0);
+	eSeq.SetData(eSeqData);
+	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.1f %.1f %.1f]", eSeqData.vecDest[0], eSeqData.vecDest[1], eSeqData.vecDest[2]);
 
 	hSequences.PushArray(eSeq);
 
@@ -84,28 +96,28 @@ OpRet WallClimb_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 
 	eSeq.fnRun = WallClimb_Shoot_Wall;
 	eSeq.iSeq = view_as<Seq>(3);
-	eSeq.aData[2] = vecDest[2];
+	eSeqData.vecDest[2] = vecDest[2];
+	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Shoot_Wall");
 	hSequences.PushArray(eSeq);
 
 	eSeq.fnRun = WallClimb_Airstrafe_Ledge;
 	eSeq.iSeq = view_as<Seq>(4);
-	eSeq.aData[0] = vecDest[0];
-	eSeq.aData[1] = vecDest[1];
-	eSeq.aData[2] = vecDest[2];
+	eSeqData.vecDest = vecDest;
+	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Airstrafe_Ledge");
 	hSequences.PushArray(eSeq);
 
 	return OpRet_Continue;
 }
 
-void WallClimb_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData) {
+void WallClimb_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_WallClimb eOpData) {
 	PrintToServer("WallClimb Cleanup");
 }
 
 // Sequences
 
-OpRet WallClimb_Walk(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime) {
+OpRet WallClimb_Walk(Bot mBot, Operation mOp, OpData_WallClimb eOpData, SeqData_WallClimb eSeqData, float fStartTime) {
 	mBot.SetMoveTo(eSeqData.vecDest);
 
 	int iEntity = mBot.iEntity;
@@ -138,7 +150,7 @@ OpRet WallClimb_Walk(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, 
 	return OpRet_Continue;
 }
 
-OpRet WallClimb_Aim_Align_Wall(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime) {
+OpRet WallClimb_Aim_Align_Wall(Bot mBot, Operation mOp, OpData_WallClimb eOpData, SeqData_WallClimb eSeqData, float fStartTime) {
 	int iEntity = mBot.iEntity;
 
 	float vecPos[3];
@@ -182,7 +194,7 @@ OpRet WallClimb_Aim_Align_Wall(Bot mBot, Operation mOp, OpData eOpData, SeqData 
 	return OpRet_Continue;
 }
 
-OpRet WallClimb_Shoot_Ground(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime) {
+OpRet WallClimb_Shoot_Ground(Bot mBot, Operation mOp, OpData_WallClimb eOpData, SeqData_WallClimb eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		mBot.GetAimTo(eOpData.vecWallAng);
 	}
@@ -204,7 +216,7 @@ OpRet WallClimb_Shoot_Ground(Bot mBot, Operation mOp, OpData eOpData, SeqData eS
 	return OpRet_Handled;
 }
 
-OpRet WallClimb_Shoot_Wall(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime) {
+OpRet WallClimb_Shoot_Wall(Bot mBot, Operation mOp, OpData_WallClimb eOpData, SeqData_WallClimb eSeqData, float fStartTime) {
 // 	PrintToServer("WallClimb_Shoot_Wall vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
 // 	Abort(mOp, "Pause");
 // 	return OpRet_Abort;
@@ -245,7 +257,7 @@ OpRet WallClimb_Shoot_Wall(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeq
 	return OpRet_Continue;
 }
 
-OpRet WallClimb_Airstrafe_Ledge(Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime) {
+OpRet WallClimb_Airstrafe_Ledge(Bot mBot, Operation mOp, OpData eOpData, SeqData_WallClimb eSeqData, float fStartTime) {
 	int iEntity = mBot.iEntity;
 	if (GetEntityFlags(iEntity) & FL_ONGROUND) {
 		return OpRet_Handled;

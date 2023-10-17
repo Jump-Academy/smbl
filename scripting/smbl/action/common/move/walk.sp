@@ -1,18 +1,22 @@
 enum struct OpData_Walk {
+	NavNode mEndNode;
 	float vecDest[3];
 	ArrayList hPathResult;
 	bool bBeelineStart;
 	float vecLastPos[3];
-	any aPadding[8];
+	any aPadding[7];
 }
 
 enum struct SeqData_Walk {
+	NavNode mPrevNode;
+	NavNode mCurrentNode;
 	float vecDest[3];
 	PathMode iPathMode;
 	bool bLeftProbeHit;
 	bool bRightProbeHit;
-	any aPadding[10];
+	any aPadding[8];
 }
+
 
 // Operation callbacks
 
@@ -75,6 +79,7 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 
 	if (mEndNode) {
 		mEndNode.GetHullProjection(vecDest, vecEnd);
+		eOpData.mEndNode = mEndNode;
 	}
 
 	int iSeqID;
@@ -84,10 +89,9 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		eSeq.iSeq = view_as<Seq>(iSeqID++);
 		eSeq.fnRun = Walk;
 
-		eSeq.aData[SeqData_Walk::vecDest  ] = vecStart[0];
-		eSeq.aData[SeqData_Walk::vecDest+1] = vecStart[1];
-		eSeq.aData[SeqData_Walk::vecDest+2] = vecStart[2];
-
+		SeqData_Walk eSeqData;
+		eSeqData.vecDest = vecStart;
+		eSeq.SetData(eSeqData);
 		FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk_Beeline [%.0f %.0f %.0f]", vecStart[0], vecStart[1], vecStart[2]);
 
 		hSequences.PushArray(eSeq);
@@ -112,33 +116,35 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 
 		Navigation.OptimizePath(hPathResult, CostFunc_WalkDrop, _, 0, -1, true);
 		
+		NavNode mPrevNode;
 		for (int i=0; i<iPathResultLength; i++) {
-			Sequence eSeq;
-			eSeq.fnRun = Walk;
-			eSeq.iSeq = view_as<Seq>(iSeqID++);
-
 			PathData ePathData;
 			hPathResult.GetArray(i, ePathData);
 
-			FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.0f %.0f %.0f]", ePathData.vecFocalPoint[0], ePathData.vecFocalPoint[1], ePathData.vecFocalPoint[2]);
+			SeqData_Walk eSeqData;
+			eSeqData.vecDest = ePathData.vecFocalPoint;
+			eSeqData.mPrevNode = mPrevNode;
+			eSeqData.mCurrentNode = mPrevNode = ePathData.mNavNode;
+			eSeqData.iPathMode = ePathData.iPathMode;
 
-			eSeq.aData[SeqData_Walk::vecDest  ] = ePathData.vecFocalPoint[0];
-			eSeq.aData[SeqData_Walk::vecDest+1] = ePathData.vecFocalPoint[1];
-			eSeq.aData[SeqData_Walk::vecDest+2] = ePathData.vecFocalPoint[2];
-			eSeq.aData[SeqData_Walk::iPathMode] = ePathData.iPathMode;
+			Sequence eSeq;
+			eSeq.fnRun = Walk;
+			eSeq.iSeq = view_as<Seq>(iSeqID++);
+			eSeq.SetData(eSeqData);
+			FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.0f %.0f %.0f]", ePathData.vecFocalPoint[0], ePathData.vecFocalPoint[1], ePathData.vecFocalPoint[2]);
 
 			hSequences.PushArray(eSeq);
 		}
 	}
 
 	if (bBeelineEnd) {
+		SeqData_Walk eSeqData;
+		eSeqData.vecDest = vecDest;
+
 		Sequence eSeq;
 		eSeq.iSeq = view_as<Seq>(iSeqID);
 		eSeq.fnRun = Walk;
-		eSeq.aData[SeqData_Walk::vecDest  ] = vecDest[0];
-		eSeq.aData[SeqData_Walk::vecDest+1] = vecDest[1];
-		eSeq.aData[SeqData_Walk::vecDest+2] = vecDest[2];
-
+		eSeq.SetData(eSeqData);
 		FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk_Beeline [%.0f %.0f %.0f]", vecDest[0], vecDest[1], vecDest[2]);
 
 		hSequences.PushArray(eSeq);
@@ -163,13 +169,11 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 				return OpRet_Continue;
 			}
 
-			float vecDest[3];
-			vecDest[0] = eSeq.aData[SeqData_Walk::vecDest  ];
-			vecDest[1] = eSeq.aData[SeqData_Walk::vecDest+1];
-			vecDest[2] = eSeq.aData[SeqData_Walk::vecDest+2];
+			SeqData_Walk eSeqData;
+			eSeq.GetData(eSeqData);
 
 			float vecVector[3];
-			SubtractVectors(vecDest, eOpData.vecLastPos, vecVector);
+			SubtractVectors(eSeqData.vecDest, eOpData.vecLastPos, vecVector);
 			NormalizeVector(vecVector, vecVector);
 
 			float fTimeElapsed = GetGameTime() - eSeq.fStartTime;
@@ -179,7 +183,6 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 			Entity_GetAbsOrigin(iEntity, vecPos);
 
 			float fMaxSpeed = GetEntPropFloat(iEntity, Prop_Data, "m_flMaxspeed");
-			float fExpectedTime = GetVectorDistance(eOpData.vecLastPos, vecDest) / fMaxSpeed;
 
 			float vecExpectedPos[3];
 			ScaleVector(vecVector, fMaxSpeed * fTimeElapsed);
@@ -198,9 +201,9 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 			if (fTimeElapsed <= fExpectedTime) {
 
 				DrawDebugLine(eOpData.vecLastPos, vecExpectedPos, COLOR_PALECYAN);
-				DrawDebugLine(vecExpectedPos, vecDest, COLOR_CYAN);
+				DrawDebugLine(vecExpectedPos, eSeqData.vecDest, COLOR_CYAN);
 			} else {
-				DrawDebugLine(eOpData.vecLastPos, vecDest, COLOR_PALECYAN);
+				DrawDebugLine(eOpData.vecLastPos, eSeqData.vecDest, COLOR_PALECYAN);
 			}
 #endif
 		}
@@ -223,7 +226,7 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 }
 
 OpRet Walk_Suspend(Bot mBot, Operation mOp, OpData_Walk eOpData) {
-	mBot.iButtons = 0;
+	mBot.iButtons &= ~IN_FORWARD;
 	mBot.SetLocalVelocity({0.0, 0.0, 0.0});
 
 	return OpRet_Continue;
@@ -238,6 +241,11 @@ OpRet Walk_Resume(Bot mBot, Operation mOp, OpData_Walk eOpData) {
 }
 
 void Walk_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk eOpData) {
+	if (mBot) {
+		mBot.iButtons &= ~IN_FORWARD;
+		mBot.SetLocalVelocity({0.0, 0.0, 0.0});
+	}
+
 	delete view_as<ArrayList>(eOpData.hPathResult);
 }
 
@@ -406,6 +414,7 @@ int GetAngDiff(float fAngA, float fAngB, float &fDiff) {
 	return 1;
 }
 
+#if defined DEBUG
 stock void DrawPath(ArrayList hPath, int iStart=0) {
 	for (int i=0; i<iStart && i<hPath.Length-1; i++) {
 		PathData ePathDataA;
@@ -444,3 +453,4 @@ stock void DrawPath(ArrayList hPath, int iStart=0) {
 		}
 	}
 }
+#endif

@@ -21,11 +21,19 @@ enum OpRet {
 	OpRet_Abort
 }
 
+enum struct OpData {
+	any aData[16]
+}
+
 enum Seq {
 	Seq_Invalid = -1
 }
 
-typedef SeqFunc = function OpRet (Bot mBot, Operation mOp, any aOpData[16], any aSeqData[16], float fStartTime);
+enum struct SeqData {
+	any aData[16]
+}
+
+typedef SeqFunc = function OpRet (Bot mBot, Operation mOp, OpData eOpData, SeqData eSeqData, float fStartTime);
 
 enum struct Sequence {
 	char sIdentifier[64];
@@ -34,13 +42,22 @@ enum struct Sequence {
 	SeqFunc fnRun;
 
 	float fStartTime;
-	any aData[16];
+	SeqData eSeqData;
+
+	void GetData(any aData[16]) {
+		aData = this.eSeqData.aData;
+	}
+
+	void SetData(any aData[16]) {
+		this.eSeqData.aData = aData;
+	}
 }
 
-typedef OpFunc = function OpRet (Bot mBot, Operation mOp, any aData[16]);
-typedef OpInitFunc = function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, any aData[16]);
-typedef OpValidateFunc = function OpRet (Bot mBot, Operation mOp, ArrayList hSequences, any aData[16], float fStartTime);
-typedef CleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSequences, any aData[16]);
+
+typedef OpFunc = function OpRet (Bot mBot, Operation mOp, OpData eOpData);
+typedef OpInitFunc = function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData);
+typedef OpValidateFunc = function OpRet (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData, float fStartTime);
+typedef CleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData);
 
 typedef OpStateChangeFwd = function void (Bot mBot, Operation mOp, OpState iOpState);
 typedef OpStepFwd = function OpRet (Bot mBot, Operation mOp);
@@ -88,6 +105,9 @@ methodmap Operation {
 	}
 
 	public native void GetIdentifier(char[] sIdentifier, int iMaxLength);
+
+	public native void GetData(any aOpData[16]); // OpData
+	public native void SetData(any aOpData[16]); // OpData
 
 	public native void GetError(char[] sError, int iMaxLength);
 	public native void SetError(char[] sError);
