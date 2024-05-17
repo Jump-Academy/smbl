@@ -1201,9 +1201,12 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 
 	KeyValues hInitParams = GetNativeCellRef(2);
 
+	Op iOp = GetNativeCell(3);
+
 	_OperationTemplate eOperationTemplate;
 	if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate))) {
 		_Operation eOp;
+		eOp.iOp = iOp;
 		eOp.sIdentifier = eOperationTemplate.sIdentifier;
 		eOp.hPlugin = eOperationTemplate.hPlugin;
 

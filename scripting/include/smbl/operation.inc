@@ -164,7 +164,7 @@ methodmap Operation {
 	public static native void Register(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, OpFunc fnSuspend=INVALID_FUNCTION, OpFunc fnResume=INVALID_FUNCTION, OpCleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);
 	public static native bool Deregister(char[] sIdentifier=NULL_STRING);
 
-	public static native Operation Instance(char[] sIdentifier, KeyValues &hInitParms=null);
+	public static native Operation Instance(char[] sIdentifier, KeyValues &hInitParms=null, Op iOp=view_as<Op>(0));
 	public static native void Destroy(Operation &mOp);
 
 	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
