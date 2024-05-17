@@ -14,6 +14,9 @@ enum struct _OperationTemplate {
 	Function fnSuspend;		// OpFunc
 	Function fnResume;		// OpFunc
 	Function fnCleanup;		// CleanupFunc
+
+	ArrayList hInstances;
+	StringMap hEventForwards;
 }
 
 enum struct _Operation {
@@ -46,6 +49,8 @@ enum struct _Operation {
 	Function fnSuspend;		// OpFunc
 	Function fnResume;		// OpFunc
 	Function fnCleanup;		// CleanupFunc
+
+	PrivateForward hEventForward;
 
 	PrivateForward hStateChangeForward;
 	PrivateForward hStepForward;
@@ -125,8 +130,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 			return OpRet_Abort;
 		}
 		case OpState_Complete: {
-			PrintToServer("Attempted to run a completed Operation.%s(%d)", eOp.sIdentifier, eOp.iUID);
-			return OpRet_Abort;
+			return OpRet_Handled;
 		}
 	}
 
@@ -331,7 +335,6 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 				eOp.hSubOpRefs.Erase(0);
 				iSubOpRefsLength--;
 			} else {
-
 				OpRet iReturn = RunOperations(mBot, mSubOp);
 				switch (iReturn) {
 					case OpRet_Handled: {
@@ -482,6 +485,10 @@ void SetupOperationNatives() {
 
 	CreateNative("Operation.Instance", 					Native_Operation_Instance);
 	CreateNative("Operation.Destroy", 					Native_Operation_Destroy);
+
+	CreateNative("Operation.AddEventListener", 			Native_Operation_AddEventListener);
+	CreateNative("Operation.RemoveEventListener", 		Native_Operation_RemoveEventListener);
+	CreateNative("Operation.DispatchEvent",		 		Native_Operation_DispatchEvent);
 }
 
 public int Native_Operation_GetOp(Handle hPlugin, int iArgC) {
@@ -549,7 +556,6 @@ public any Native_Operation_GetIdentifier(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
-
 public any Native_Operation_GetData(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 
@@ -599,7 +605,6 @@ public any Native_Operation_SetError(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
-
 public any Native_Operation_Equals(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 	Operation mOtherOp = GetNativeCell(2);
@@ -617,7 +622,6 @@ public any Native_Operation_Equals(Handle hPlugin, int iArgC) {
 
 	return m_hOperations.Get(iThis, _Operation::iUID) == m_hOperations.Get(iOtherThis, _Operation::iUID);
 }
-
 
 public any Native_Operation_IsValid(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
@@ -927,6 +931,8 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 		return 0;
 	}
 
+	bool bAbortAsComplete = GetNativeCell(2);
+
 	_Operation eOp;
 	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
 
@@ -958,23 +964,25 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 
 	eOp.hSequences.Clear();
 
-	eOp.iOpState = OpState_Abort;
+	eOp.iOpState = bAbortAsComplete ? OpState_Complete : OpState_Abort;
 	m_hOperations.SetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
 
 	Call_StartForward(eOp.hStateChangeForward);
 	Call_PushCell(eOp.mBot);
 	Call_PushCell(mOp);
-	Call_PushCell(OpState_Abort);
+	Call_PushCell(eOp.iOpState);
 	Call_Finish();
 
-	char sBuffer[256];
-	FormatEx(sBuffer, sizeof(sBuffer), "Operation.%s(%d) abort called", eOp.sIdentifier, eOp.iUID);
+	if (!bAbortAsComplete) {
+		char sBuffer[256];
+		FormatEx(sBuffer, sizeof(sBuffer), "Operation.%s(%d) abort called", eOp.sIdentifier, eOp.iUID);
 
-	Call_StartForward(eOp.hAbortForward);
-	Call_PushCell(eOp.mBot);
-	Call_PushCell(mOp);
-	Call_PushString(sBuffer);
-	Call_Finish();
+		Call_StartForward(eOp.hAbortForward);
+		Call_PushCell(eOp.mBot);
+		Call_PushCell(mOp);
+		Call_PushString(sBuffer);
+		Call_Finish();
+	}
 
 	return 0;
 }
@@ -1097,6 +1105,9 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 	eOperationTemplate.bConcurrent = GetNativeCell(11);
 	eOperationTemplate.bCascadeAborts = GetNativeCell(12);
 
+	eOperationTemplate.hInstances = new ArrayList();
+	eOperationTemplate.hEventForwards = new StringMap();
+
 	if (m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), false)) {
 		PrintToServer("SMBL registered operation: %s", eOperationTemplate.sIdentifier);
 
@@ -1110,22 +1121,39 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 
 public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 	if (IsNativeParamNullString(1)) {
-		StringMapSnapshot hSnapshot = m_hOperationTemplates.Snapshot();
+		StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();
 
-		int iSnapshotLength = hSnapshot.Length;
-		for (int i=0; i<iSnapshotLength; i++) {
+		for (int i=0; i<hOperationTemplatesSnapshot.Length; i++) {
 			char sIdentifier[64];
-			hSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+			hOperationTemplatesSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
 
 			_OperationTemplate eOperationTemplate;
 			if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate)) && eOperationTemplate.hPlugin == hPlugin) {
-				m_hOperationTemplates.Remove(sIdentifier);
+
+				StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
+
+				for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
+					char sEvent[64];
+					hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
+
+					PrivateForward hEventForward;
+					eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
+					delete hEventForward;
+				}
+
+				delete hEventForwardsSnapshot;
+				delete eOperationTemplate.hEventForwards;
+
 				DestroyDeregisteredOperation(sIdentifier);
+
+				delete eOperationTemplate.hInstances;
+				m_hOperationTemplates.Remove(sIdentifier);
+
 				PrintToServer("SMBL deregistered operation: %s", eOperationTemplate.sIdentifier);
 			}
 		}
 
-		delete hSnapshot;
+		delete hOperationTemplatesSnapshot;
 
 		return true;
 	}
@@ -1141,8 +1169,25 @@ public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 			ThrowError("Operation (%s) may only be deregistered from originating plugin: %s", sIdentifier, sPluginName);
 		}
 
-		m_hOperationTemplates.Remove(sIdentifier);
+
+		StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
+
+		for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
+			char sEvent[64];
+			hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
+
+			PrivateForward hEventForward;
+			eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
+			delete hEventForward;
+		}
+
+		delete hEventForwardsSnapshot;
+		delete eOperationTemplate.hEventForwards;
+
 		DestroyDeregisteredOperation(sIdentifier);
+
+		delete eOperationTemplate.hInstances;
+		m_hOperationTemplates.Remove(sIdentifier);
 
 		return true;
 	}
@@ -1190,8 +1235,10 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		eOp.fnResume = eOperationTemplate.fnResume;
 		eOp.fnCleanup = eOperationTemplate.fnCleanup;
 
+		eOp.hEventForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
+
 		eOp.hStateChangeForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
-		eOp.hStepForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell);
+		eOp.hStepForward = new PrivateForward(ET_Hook, Param_Cell, Param_Cell);
 		eOp.hAbortForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_String);
 
 		Operation mOp;
@@ -1207,6 +1254,8 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		} else {
 			mOp = view_as<Operation>(m_hOperations.PushArray(eOp)+1);
 		}
+
+		eOperationTemplate.hInstances.Push(mOp);
 
 		return mOp;
 	}
@@ -1228,6 +1277,13 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 
 	_Operation eOp;
 	m_hOperations.GetArray(iThis, eOp);
+
+	_OperationTemplate eOperationTemplate;
+	m_hOperationTemplates.GetArray(eOp.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate));
+	int iInstanceIdx = eOperationTemplate.hInstances.FindValue(mOp);
+	if (iInstanceIdx != -1) {
+		eOperationTemplate.hInstances.Erase(iInstanceIdx);
+	}
 
 	if (!eOp.bInitParamsExternal) {
 		delete eOp.hInitParams;
@@ -1267,6 +1323,8 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 
 	delete eOp.hSequences;
 
+	SetNativeCellRef(1, NULL_OPERATION);
+
 	if (iThis == m_hOperations.Length-1) {
 		for (int i=iThis; i>0; i--) {
 			if (!m_hOperations.Get(i-1, _Operation::bGCFlag)) {
@@ -1278,9 +1336,104 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 		m_hOperations.Clear();
 	}
 
-	SetNativeCellRef(1, NULL_OPERATION);
-
 	return 0;
+}
+
+public any Native_Operation_AddEventListener(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	char sEvent[64];
+	GetNativeString(2, sEvent, sizeof(sEvent));
+
+	Function fnEventForward = GetNativeFunction(3);
+
+	_OperationTemplate eOperationTemplate;
+	if (!m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate))) {
+		return false;
+	}
+
+	PrivateForward hEventForward;
+	if (!eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward)) {
+		hEventForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Array, Param_Cell);
+		eOperationTemplate.hEventForwards.SetValue(sEvent, hEventForward);
+	}
+
+	return hEventForward.AddFunction(hPlugin, fnEventForward);
+}
+
+public any Native_Operation_RemoveEventListener(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	char sEvent[64];
+	GetNativeString(2, sEvent, sizeof(sEvent));
+
+	Function fnEventForward = GetNativeFunction(3);
+
+	_OperationTemplate eOperationTemplate;
+	if (!m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate))) {
+		return false;
+	}
+
+	PrivateForward hEventForward;
+	if (!eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward)) {
+		return false;
+	}
+
+	return hEventForward.RemoveFunction(hPlugin, fnEventForward);
+}
+
+public any Native_Operation_DispatchEvent(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	char sEvent[64];
+	GetNativeString(2, sEvent, sizeof(sEvent));
+
+	any aData = GetNativeCell(3);
+
+	_OperationTemplate eOperationTemplate;
+	if (!m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate))) {
+		return false;
+	}
+
+	PrivateForward hEventForward;
+	if (!eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward)) {
+		return false;
+	}
+
+	if (hPlugin == eOperationTemplate.hPlugin) {
+		for (int i=0; i<eOperationTemplate.hInstances.Length; i++) {
+			Operation mOp = eOperationTemplate.hInstances.Get(i);
+			_Operation eOp;
+			m_hOperations.GetArray(view_as<int>(mOp)-1, eOp);
+
+			Call_StartForward(hEventForward);
+			Call_PushCell(eOp.mBot);
+			Call_PushCell(mOp);
+			Call_PushArrayEx(eOp.eOpData, sizeof(OpData), SM_PARAM_COPYBACK);
+			Call_PushCell(aData);
+			Call_Finish();
+
+			m_hOperations.SetArray(view_as<int>(mOp)-1, eOp);
+		}
+	} else {
+		for (int i=0; i<eOperationTemplate.hInstances.Length; i++) {
+			Operation mOp = eOperationTemplate.hInstances.Get(i);
+			_Operation eOp;
+			m_hOperations.GetArray(view_as<int>(mOp)-1, eOp);
+
+			Call_StartForward(hEventForward);
+			Call_PushCell(eOp.mBot);
+			Call_PushCell(mOp);
+			Call_PushArray(eOp.eOpData, sizeof(OpData));
+			Call_PushCell(aData);
+			Call_Finish();
+		}
+	}
+
+	return true;
 }
 
 public any Native_OpRef_ToOperation(Handle hPlugin, int iArgC) {

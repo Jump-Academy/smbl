@@ -472,12 +472,12 @@ bool IsNameUnique(char[] sNameSearch) {
 	return true;
 }
 
-void TF2_GetClassName(TFClassType iClass, char[] sName, int iMaxLength) {
+void TF2_GetClassName(TFClassType iClassType, char[] sName, int iMaxLength) {
 	char sClass[10][10] = {"unknown", "scout", "sniper", "soldier", "demoman", "medic", "heavy", "pyro", "spy", "engineer"};
-	strcopy(sName, iMaxLength, sClass[view_as<int>(iClass)]);
+	strcopy(sName, iMaxLength, sClass[view_as<int>(iClassType)]);
 }
 
-void TF2_GetClassChars(TFClassType iClass, char[] sChars, int iMaxLength) {
+void TF2_GetClassChars(TFClassType iClassType, char[] sChars, int iMaxLength) {
 	char sClassChars[10][4] = {"unk", "sc", "sn", "so", "dm", "md", "hw", "py", "sp", "en"};
-	strcopy(sChars, iMaxLength, sClassChars[view_as<int>(iClass)]);
+	strcopy(sChars, iMaxLength, sClassChars[view_as<int>(iClassType)]);
 }

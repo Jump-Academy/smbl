@@ -54,15 +54,20 @@ enum struct Sequence {
 	}
 }
 
-
-typedef OpFunc = function OpRet (Bot mBot, Operation mOp, OpData eOpData);
 typedef OpInitFunc = function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData);
 typedef OpValidateFunc = function OpRet (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData, float fStartTime);
-typedef CleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData);
+typedef OpFunc = function OpRet (Bot mBot, Operation mOp, OpData eOpData);
+typedef OpCleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData);
+
+typedef OpEventFwd = function void (Bot mBot, Operation mOp, OpData eOpData, any aData);
 
 typedef OpStateChangeFwd = function void (Bot mBot, Operation mOp, OpState iOpState);
 typedef OpStepFwd = function OpRet (Bot mBot, Operation mOp);
 typedef OpAbortFwd = function void (Bot mBot, Operation mOp, char[] sError);
+
+stock OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
+	return OpRet_Abort;
+}
 
 #define NULL_OPERATION	view_as<Operation>(0)
 #define INVALID_OPERATION_REFERENCE	view_as<OpRef>(-1)
@@ -119,14 +124,14 @@ methodmap Operation {
 	public native bool AddSubOperation(Operation mSubOperation, int iIndex=-1);
 	public native void ClearSubOperations();
 
-	public native bool AddStateChangeForward(OpStateChangeFwd funcForward);
-	public native bool RemoveStateChangeForward(OpStateChangeFwd funcForward);
+	public native bool AddStateChangeForward(OpStateChangeFwd fnForward);
+	public native bool RemoveStateChangeForward(OpStateChangeFwd fnForward);
 
-	public native bool AddStepForward(OpStepFwd funcForward);
-	public native bool RemoveStepForward(OpStepFwd funcForward);
+	public native bool AddStepForward(OpStepFwd fnForward);
+	public native bool RemoveStepForward(OpStepFwd fnForward);
 
-	public native bool AddAbortForward(OpAbortFwd funcForward);
-	public native bool RemoveAbortForward(OpAbortFwd funcForward);
+	public native bool AddAbortForward(OpAbortFwd fnForward);
+	public native bool RemoveAbortForward(OpAbortFwd fnForward);
 
 	/**
 	 * Pre-initialize the Operation (optional, but can be used to check if runnable)
@@ -140,7 +145,7 @@ methodmap Operation {
 	public native bool Interrupt();
 	public native bool Resume();
 
-	public native void Abort();
+	public native void Abort(bool bAbortAsComplete=false);
 	public native void Restart();
 
 	/**
@@ -156,11 +161,15 @@ methodmap Operation {
 
 	public native OpRef ToOpRef();
 
-	public static native void Register(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, OpFunc fnSuspend=INVALID_FUNCTION, OpFunc fnResume=INVALID_FUNCTION, CleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);
+	public static native void Register(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, OpFunc fnSuspend=INVALID_FUNCTION, OpFunc fnResume=INVALID_FUNCTION, OpCleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);
 	public static native bool Deregister(char[] sIdentifier=NULL_STRING);
 
 	public static native Operation Instance(char[] sIdentifier, KeyValues &hInitParms=null);
 	public static native void Destroy(Operation &mOp);
+
+	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
+	public static native bool RemoveEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
+	public static native bool DispatchEvent(char[] sIdentifier, char[] sEvent, any aData=0);
 }
 
 methodmap OpRef {
