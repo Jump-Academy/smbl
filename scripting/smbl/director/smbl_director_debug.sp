@@ -126,7 +126,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 				}
 
 				int iLongestWidth;
-				int iLines = PrintCallChain(mMainOperation, true, sBuffer[iTitleLength], sizeof(sBuffer)-iTitleLength, iLongestWidth);
+				int iLines = PrintCallChain(mMainOperation, true, sBuffer[iTitleLength], sizeof(sBuffer)-iTitleLength, iLongestWidth, 7);
 
 				hDebugPanel.DrawText(sBuffer);
 
@@ -157,6 +157,10 @@ public void SMBL_OnBotAdd(Bot mBot) {
 
 	for (int i=0; i<iDebuggerCount; i++) {
 		int iObsTarget = Client_GetObserverTarget(iDebuggers[i]);
+		if (!Client_IsValid(iObsTarget)) {
+			continue;
+		}
+
 		Bot mObsBot = SMBL_GetClientBot(iObsTarget);
 
 		// If debugger was previously spectating a bot that got removed, spectate the new bot instead
@@ -451,7 +455,7 @@ public Action cmdStart(int iClient, int iArgC) {
 	for (int i=0; i<iTargetCount; i++) {
 		Bot mBot = SMBL_GetClientBot(iTargetList[i]);
 		if (!mBot) {
-			ReplyToCommand(iClient, "[smbl] %N is not a BOT.", iTargetList[i]);
+			ReplyToCommand(iClient, "[smbl] %N is not a smbl bot.", iTargetList[i]);
 			continue;
 		}
 
@@ -543,7 +547,7 @@ public Action cmdStartChain(int iClient, int iArgC) {
 
 		Bot mBot = SMBL_GetClientBot(iTargetList[i]);
 		if (!mBot) {
-			ReplyToCommand(iClient, "[smbl] %N is not a BOT.", iTargetList[i]);
+			ReplyToCommand(iClient, "[smbl] %N is not a smbl bot.", iTargetList[i]);
 			continue;
 		}
 
@@ -626,7 +630,7 @@ public Action cmdStop(int iClient, int iArgC) {
 	for (int i=0; i<iTargetCount; i++) {
 		Bot mBot = SMBL_GetClientBot(iTargetList[i]);
 		if (!mBot) {
-			ReplyToCommand(iClient, "[smbl] %N is not a BOT.", iTargetList[i]);
+			ReplyToCommand(iClient, "[smbl] %N is not a smbl bot.", iTargetList[i]);
 			continue;
 		}
 
@@ -702,6 +706,7 @@ Operation FindManualOp(Bot mBot) {
 	if (!mBot.mMainOperation) {
 		ThrowError("%N has no main operation!", mBot.iEntity);
 	}
+
 	ArrayList hMainSubOpRefs = mBot.mMainOperation.hSubOpRefs;
 
 	char sOperation[128];
@@ -733,7 +738,7 @@ void Indent(char[] sBuffer, int iMaxLength, int iDepth, int iLast) {
 	}
 }
 
-int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer, int iBufferSize, int &iLongestWidth, int iDepth=0, bool bFirst=true, int iLast=1) {
+int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer, int iBufferSize, int &iLongestWidth, int iMaxLines, int iDepth=0, bool bFirst=true, int iLast=1) {
 	int iLines;
 
 	char[] sIndent = new char[8*iDepth+1];
@@ -790,7 +795,7 @@ int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer,
 						}
 					}
 					case KvData_Float: {
-						Format(sBufferParams, sizeof(sBufferParams), "%s%s%s=%.3f", sBufferParams, sComma, sKey, hInitParams.GetFloat(NULL_STRING));
+						Format(sBufferParams, sizeof(sBufferParams), "%s%s%s=%.0f", sBufferParams, sComma, sKey, hInitParams.GetFloat(NULL_STRING));
 					}
 
 				}
@@ -835,15 +840,19 @@ int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer,
 	ArrayList hSequences = mOperation.hSequences;
 	if (hSequences) {
 		int iSequencesLength = hSequences.Length;
+
 		int iMaxIdx = iSequencesLength < 2 ? iSequencesLength : 2;
 
-		// Prevents pointlessly showing (1 more...) on third line when there are only 3 items
-		if (iSequencesLength == 3) {
-			iMaxIdx = 3;
-			iLines += 3;
-		} else {
-			iLines += iMaxIdx;
+		if (iMaxIdx > iMaxLines-iLines) {
+			iMaxIdx = iMaxLines-iLines;
 		}
+
+		// Prevents pointlessly showing (1 more...) on third line when there are only 3 items
+		if (iSequencesLength-iMaxIdx == 1) {
+			iMaxIdx++;
+		}
+
+		iLines += iMaxIdx;
 
 		for (int i=0; i<iMaxIdx; i++) {
 			Sequence eSequence;
@@ -861,17 +870,35 @@ int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer,
 
 	iLines++;
 
+	if (iMaxLines < 0) {
+		return iLines;
+	}
+
 	ArrayList hSubOpRefs = mOperation.hSubOpRefs;
 	if (hSubOpRefs) {
 		for (int i=0; i<hSubOpRefs.Length; i++) {
 			OpRef mSubOpRef = hSubOpRefs.Get(i);
 			Operation mSubOp = mSubOpRef.ToOperation();
 			if (mSubOp.IsValid()) {
-				iLines += PrintCallChain(mSubOp, bConcurrent, sBuffer, iBufferSize, iLongestWidth, iDepth+1, i==0, iLast | view_as<int>(i==hSubOpRefs.Length-1) << (iDepth+1));
+				iLines += PrintCallChain(mSubOp, bConcurrent, sBuffer, iBufferSize, iLongestWidth, iMaxLines-iLines, iDepth+1, i==0, iLast | view_as<int>(i==hSubOpRefs.Length-1) << (iDepth+1));
 			} else {
 				Indent(sIndent, 8*iDepth+2, iDepth+1, iLast | view_as<int>(i==hSubOpRefs.Length-1) << (iDepth+1));
 				Format(sBuffer, iBufferSize, "%s\n%s %s ? (Invalid Operation)", sBuffer, sIndent, (i==hSubOpRefs.Length-1) ? "└─" : "├─");
 				iLines++;
+			}
+
+			if (iLines >= iMaxLines-1 && i<hSubOpRefs.Length-2) {
+
+				// Workaround for misalignment on first level
+				if (iDepth > 1) {
+					Indent(sIndent, 8*iDepth+2, iDepth, iLast | 1 << (iDepth+1));
+				} else {
+					Indent(sIndent, 8*iDepth+2, iDepth+1, iLast | 1 << (iDepth+1));
+				}
+
+				Format(sBuffer, iBufferSize, "%s\n%s└─ (%d more...)", sBuffer, sIndent, hSubOpRefs.Length-i-1);
+				iLines++;
+				break;
 			}
 		}
 	}
