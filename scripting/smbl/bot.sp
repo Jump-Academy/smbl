@@ -3,6 +3,8 @@ GlobalForward g_hOnBotRemoveForward;
 
 static ArrayList m_hBots;
 
+static Handle m_hSDKWeaponSwitch;
+
 // Bot natives
 
 void SetupBotNatives() {
@@ -32,6 +34,7 @@ void SetupBotNatives() {
 	CreateNative("Bot.iButtons.get", 			Native_Bot_GetButtons);
 	CreateNative("Bot.iButtons.set", 			Native_Bot_SetButtons);
 
+
 	CreateNative("Bot.GetMoveTo",				Native_Bot_GetMoveTo);
 	CreateNative("Bot.SetMoveTo",				Native_Bot_SetMoveTo);
 
@@ -46,6 +49,8 @@ void SetupBotNatives() {
 	CreateNative("Bot.GetPID",		 			Native_Bot_GetPID);
 	CreateNative("Bot.SetPID",		 			Native_Bot_SetPID);
 
+	CreateNative("Bot.SwitchWeapon",			Native_Bot_SwitchWeapon);
+
 	CreateNative("Bot.CleanUp",		 			Native_Bot_Cleanup);
 
 	CreateNative("Bot.Instance", 				Native_Bot_Instance);
@@ -53,6 +58,19 @@ void SetupBotNatives() {
 
 	CreateNative("SMBL_GetBots", 				Native_GetBots);
 	CreateNative("SMBL_GetClientBot", 			Native_GetClientBot);
+}
+
+void SetupBotSDKCalls() {
+	GameData hGameData = new GameData("sdkhooks.games");
+	if (hGameData) {
+		StartPrepSDKCall(SDKCall_Player);
+		PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "Weapon_Switch");
+		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer); // CBaseCombatWeapon* pWeapon
+		PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain); // viewmodelindex = 0
+		m_hSDKWeaponSwitch = EndPrepSDKCall();
+
+		delete hGameData;
+	}
 }
 
 public int Native_Bot_GetActive(Handle hPlugin, int iArgC) {
@@ -208,6 +226,29 @@ public int Native_Bot_SetButtons(Handle hPlugin, int iArgC) {
 	m_hBots.Set(iThis, iButtons, _Bot::iButtons);
 
 	return 0;
+}
+
+public int Native_Bot_SwitchWeapon(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iWeaponSlot = GetNativeCell(2);
+
+	int iEntity = EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntity));
+	if (!IsValidEntity(iEntity) || !Client_IsValid(iEntity)) {
+		return -1;
+	}
+
+	int iWeapon = GetPlayerWeaponSlot(iEntity, iWeaponSlot);
+	if (iWeapon == -1) {
+		return -1;
+	}
+
+	if (m_hSDKWeaponSwitch) {
+		SDKCall(m_hSDKWeaponSwitch, iEntity, iWeapon, 0);
+	} else {
+		Client_SetActiveWeapon(iEntity, iWeapon);
+	}
+
+	return iWeapon;
 }
 
 public int Native_Bot_GetPID(Handle hPlugin, int iArgC) {

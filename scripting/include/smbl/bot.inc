@@ -45,6 +45,7 @@ methodmap Bot {
 	public native void GetPID(float vecPID[3]);
 	public native void SetPID(float vecPID[3]);
 
+	public native int SwitchWeapon(int iWeaponSlot);
 
 	public native void CleanUp();
 

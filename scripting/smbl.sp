@@ -85,6 +85,8 @@ public void OnPluginStart() {
 
 	g_hBots = new ArrayList();
 	g_hDirectors = new ArrayList(sizeof(Director));
+
+	SetupBotSDKCalls();
 }
 
 public void OnPluginEnd() {
