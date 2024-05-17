@@ -17,7 +17,6 @@ enum struct SeqData_Walk {
 	any aPadding[8];
 }
 
-
 // Operation callbacks
 
 OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Walk eOpData) {
@@ -31,6 +30,13 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	if ((!mStartNode || !mEndNode) && !mNavMesh) {
 		return mOp._Abort("missing navigation mesh init parameter");
 	}
+
+	if (!hInitParams.JumpToKey("destination")) {
+		return mOp._Abort("missing destination init parameter");
+	}
+
+	hInitParams.GoBack();
+	hInitParams.GetVector("destination", vecDest);
 
 	Entity_GetAbsOrigin(mBot.iEntity, vecEntity);
 
@@ -58,33 +64,23 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mEndNode) {
-		if (hInitParams.JumpToKey("destination")) {
-			hInitParams.GoBack();
-			hInitParams.GetVector("destination", vecDest);
-		}
-
 		if (!mEndNode.Contains(vecDest)) {
 			return mOp._Abort("destination init parameter is not within end_node init parameter");
 		}
+
+		vecEnd = vecDest;
 	} else {
-		if (!hInitParams.JumpToKey("destination")) {
-			return mOp._Abort("missing destination init parameter");
-		}
-
-		hInitParams.GoBack();
-		hInitParams.GetVector("destination", vecDest);
-
 		mEndNode = mNavMesh.GetNearestNodeInRange(vecDest, NODE_PROXIMITY, true, 20.0);
 		if (!mEndNode) {
 			mEndNode = mNavMesh.GetNearestNodeInRange(vecDest, 4*NODE_PROXIMITY);
 			PrintToServer("SMBL: Destination point is not within mesh.  Beeline %s.", mEndNode ? "to closest node" : "it");
 			bBeelineEnd = true;
 		}
-	}
 
-	if (mEndNode) {
-		mEndNode.GetHullProjection(vecDest, vecEnd);
-		eOpData.mEndNode = mEndNode;
+		if (mEndNode) {
+			mEndNode.GetHullProjection(vecDest, vecEnd);
+			eOpData.mEndNode = mEndNode;
+		}
 	}
 
 	int iSeqID;
@@ -108,11 +104,6 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		int iPathResultLength = hPathResult.Length;
 		if (!iPathResultLength) {
 			delete hPathResult;
-
-			float vecS[3];
-			mStartNode.GetOrigin(vecS);
-			float vecE[3];
-			mEndNode.GetOrigin(vecE);
 
 			return mOp._Abort("end node is not reachable from start");
 		}
@@ -203,13 +194,8 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 			}
 
 #if defined DEBUG
-			if (fTimeElapsed <= fExpectedTime) {
-
-				DrawDebugLine(eOpData.vecLastPos, vecExpectedPos, COLOR_PALECYAN);
-				DrawDebugLine(vecExpectedPos, eSeqData.vecDest, COLOR_CYAN);
-			} else {
-				DrawDebugLine(eOpData.vecLastPos, eSeqData.vecDest, COLOR_PALECYAN);
-			}
+			DrawDebugLine(eOpData.vecLastPos, vecExpectedPos, COLOR_PALECYAN);
+			DrawDebugLine(vecExpectedPos, eSeqData.vecDest, COLOR_CYAN);
 #endif
 		}
 
