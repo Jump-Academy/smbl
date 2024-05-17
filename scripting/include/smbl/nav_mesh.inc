@@ -70,22 +70,24 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 #define MAX_NODE_VERTICES		8
 #define MAX_EDGE_ATTACHMENTS	8
 
-// Attached node attribute masks
+// Node attachment attribute masks
 #define FL_ATTACH_BLOCKED			(1 << 0)
 #define FL_ATTACH_GROUND			(1 << 1)
 #define FL_ATTACH_SOLID				(1 << 2)
 #define FL_ATTACH_WALL				(1 << 3)
-#define FL_ATTACH_NO_CLEARANCE		(1 << 4)
-#define FL_ATTACH_UNCHARTED			(1 << 5)
+#define FL_ATTACH_LOW_CLEARANCE		(1 << 4)
+#define FL_ATTACH_AIR_GAP			(1 << 5)
 #define FL_ATTACH_MUST_DUCK			(1 << 6)
 #define FL_ATTACH_MUST_JUMP			(1 << 7)
 #define FL_ATTACH_PRECISE			(1 << 8)
 #define FL_ATTACH_DROP				(1 << 9)
-#define FL_ATTACH_AVOID				(1 << 10)
-#define FL_ATTACH_HAZARD			(1 << 11)
-#define FL_ATTACH_UNSURVIVABLE		(1 << 12)
-#define FL_ATTACH_TRANSIENT			(1 << 13)
-#define FL_ATTACH_ANY				0xFFFFFFFF
+
+// Node area attribute masks
+#define FL_NODE_UNCHARTED			(1 << 0)
+#define FL_NODE_AVOID				(1 << 1)
+#define FL_NODE_HAZARD				(1 << 2)
+#define FL_NODE_UNSURVIVABLE		(1 << 3)
+#define FL_NODE_TRANSIENT			(1 << 4)
 
 #define NaN					view_as<float>(0x7FC00000)
 #define POSITIVE_INFINITY	view_as<float>(0x7F800000)

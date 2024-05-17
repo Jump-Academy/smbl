@@ -23,6 +23,7 @@
 #define COLOR_YELLOW	{255, 255, 0, 255}
 #define COLOR_MAGENTA	{255, 0, 255, 255}
 #define COLOR_CYAN		{0, 255, 255, 255}
+#define COLOR_ORANGE	{127, 31, 0, 255}
 
 #define CROSSHAIR_SIZE	25.0
 
@@ -99,20 +100,25 @@ NavMesh g_mNavMesh;
 
 // Pair with FL_ATTACH_ flags in smbl/nav_mesh.inc
 char g_sAttachFlags[][32] = {
-	"Blocked",		// 0
-	"Ground",		// 1
-	"Solid",		// 2
-	"Wall",			// 3
-	"No Clearance", // 4
-	"Uncharted",	// 5
-	"Must Duck",	// 6
-	"Must Jump",	// 7
-	"Precise",		// 8
-	"Drop",			// 9
-	"Avoid",		// 10
-	"Hazard",		// 11
-	"Unsurvivable",	// 12
-	"Transient"		// 13
+	"Blocked",			// 0
+	"Ground",			// 1
+	"Solid",			// 2
+	"Wall",				// 3
+	"Low Clearance",	// 4
+	"Air Gap",			// 5
+	"Must Duck",		// 6
+	"Must Jump",		// 7
+	"Precise",			// 8
+	"Drop"				// 9
+};
+
+// Pair with FL_NODE_ flags in smbl/nav_mesh.inc
+char g_sNodeFlags[][32] = {
+	"Uncharted",		// 0
+	"Avoid",			// 1
+	"Hazard",			// 2
+	"Unsurvivable",		// 3
+	"Transient"			// 4
 };
 
 int g_iLaser;
@@ -826,8 +832,10 @@ void GetAttachmentColor(int iAttachmentFlags, int iColor[4]) {
 		iColor = COLOR_CYAN;
 	} else if (iAttachmentFlags & FL_ATTACH_DROP) {
 		iColor = COLOR_GREEN;
+	} else if (iAttachmentFlags & FL_ATTACH_AIR_GAP) {
+		iColor = COLOR_ORANGE;
 	} else {
-		iColor = COLOR_BLUE;
+		iColor = COLOR_WHITE;
 	}
 }
 
