@@ -107,9 +107,9 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 		hFrontier.GetArray(0, eFrontier);
 		NavNode mCurrentNode = eFrontier.mNode;
 
-		if (mCurrentNode == mEndNode) {
-			hFrontierDataMap.GetArray(eFrontier.sIdentifier, eFrontierData, sizeof(FrontierData));
+		hFrontierDataMap.GetArray(eFrontier.sIdentifier, eFrontierData, sizeof(FrontierData));
 
+		if (mCurrentNode == mEndNode) {
 			float fTotalCost = eFrontierData.fCost;
 
 			PathData ePathData;
@@ -159,8 +159,6 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 
 		float vecFocalPointCurrent[3], vecFocalPointNeighbor[3];
 		vecFocalPointCurrent = eFrontierData.vecFocalPoint;
-
-		float fCurrentCost = hFrontierDataMap.GetArray(eFrontier.sIdentifier, eFrontierData, sizeof(FrontierData)) ? eFrontierData.fCost : 0.0;
 
 		for (int i=0; i<iVertices; i++) {
 			int iAttachmentsLength = mCurrentNode.GetAttachmentsLength(i);
@@ -257,20 +255,22 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 					}
 
 					if (fCost == fCost && fCost != POSITIVE_INFINITY) {
+						FrontierData eNewFrontierData;
+
 						PackCellToStr(mAttachedNode, sKey);
-						float fNeighborCost = hFrontierDataMap.GetArray(sKey, eFrontierData, sizeof(FrontierData)) ? eFrontierData.fCost : POSITIVE_INFINITY;
-						float fNewCost = fCurrentCost + fCost;
+						float fNeighborCost = hFrontierDataMap.GetArray(sKey, eNewFrontierData, sizeof(FrontierData)) ? eNewFrontierData.fCost : POSITIVE_INFINITY;
+						float fNewCost = eFrontierData.fCost + fCost;
 
 						if (fNewCost < fNeighborCost) {
-							eFrontierData.sIdentifier = sKey;
-							eFrontierData.sParentIdentifier = eFrontier.sIdentifier;
-							eFrontierData.mParentNode = mCurrentNode;
-							eFrontierData.iParentEdge = i;
-							eFrontierData.iParentAttachmentFlags = iAttachmentFlags;
-							eFrontierData.mNode = mAttachedNode;
-							eFrontierData.iEdge = iAttachedNodeEdge;
+							eNewFrontierData.sIdentifier = sKey;
+							eNewFrontierData.sParentIdentifier = eFrontier.sIdentifier;
+							eNewFrontierData.mParentNode = mCurrentNode;
+							eNewFrontierData.iParentEdge = i;
+							eNewFrontierData.iParentAttachmentFlags = iAttachmentFlags;
+							eNewFrontierData.mNode = mAttachedNode;
+							eNewFrontierData.iEdge = iAttachedNodeEdge;
 
-							eFrontierData.vecFocalPoint = vecFocalPointNeighbor;
+							eNewFrontierData.vecFocalPoint = vecFocalPointNeighbor;
 
 							bStop = false;
 							Call_StartFunction(hPlugin, fnCostFunc);
@@ -287,9 +287,9 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 
 							float fHeuristic;
 							if (Call_Finish(fHeuristic) == SP_ERROR_NONE && fHeuristic == fHeuristic && fHeuristic != POSITIVE_INFINITY) {
-								eFrontierData.fCost = fNewCost;
-								eFrontierData.fScore = fNewCost + fHeuristic;
-								hFrontierDataMap.SetArray(sKey, eFrontierData, sizeof(FrontierData));
+								eNewFrontierData.fCost = fNewCost;
+								eNewFrontierData.fScore = fNewCost + fHeuristic;
+								hFrontierDataMap.SetArray(sKey, eNewFrontierData, sizeof(FrontierData));
 
 								if (hFrontier.FindString(sKey) == -1) {
 									Frontier eFrontierNeighbor;
@@ -706,13 +706,7 @@ public any Native_Navigation_FindNearby(Handle hPlugin, int iArgC) {
 		hFrontier.Erase(0);
 
 		NavNode mCurrentNode = eFrontier.mNode;
-
 		int iVertices = mCurrentNode.iVertices;
-
-		float vecFocalPointCurrent[3], vecFocalPointNeighbor[3];
-		vecFocalPointCurrent = eFrontierData.vecFocalPoint;
-
-		float fCurrentCost = hFrontierDataMap.GetArray(eFrontier.sIdentifier, eFrontierData, sizeof(FrontierData)) ? eFrontierData.fCost : 0.0;
 
 		for (int i=0; i<iVertices; i++) {
 			int iAttachmentsLength = mCurrentNode.GetAttachmentsLength(i);
@@ -722,6 +716,7 @@ public any Native_Navigation_FindNearby(Handle hPlugin, int iArgC) {
 				int iAttachmentFlags;
 				mCurrentNode.GetAttachment(i, j, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags);
 
+				float vecFocalPointNeighbor[3];
 				if (mAttachedNode) {
 					mAttachedNode.GetOrigin(vecFocalPointNeighbor);
 				} else {
@@ -735,7 +730,7 @@ public any Native_Navigation_FindNearby(Handle hPlugin, int iArgC) {
 				Call_PushCell(mAttachedNode);
 				Call_PushCell(iAttachedNodeEdge);
 				Call_PushCell(iAttachmentFlags);
-				Call_PushArray(vecFocalPointCurrent, sizeof(vecFocalPointCurrent));
+				Call_PushArray(eFrontierData.vecFocalPoint, sizeof(FrontierData::vecFocalPoint));
 				Call_PushArray(vecFocalPointNeighbor, sizeof(vecFocalPointNeighbor));
 				Call_PushCell(false);
 				Call_PushCell(aData);
@@ -808,23 +803,24 @@ public any Native_Navigation_FindNearby(Handle hPlugin, int iArgC) {
 					}
 
 					if (mAttachedNode && fCost == fCost && fCost != POSITIVE_INFINITY) {
+						FrontierData eNewFrontierData;
 						PackCellToStr(mAttachedNode, sKey);
-						float fNeighborCost = hFrontierDataMap.GetArray(sKey, eFrontierData, sizeof(FrontierData)) ? eFrontierData.fCost : POSITIVE_INFINITY;
-						float fNewCost = fCurrentCost + fCost;
+						float fNeighborCost = hFrontierDataMap.GetArray(sKey, eNewFrontierData, sizeof(FrontierData)) ? eNewFrontierData.fCost : POSITIVE_INFINITY;
+						float fNewCost = eFrontierData.fCost + fCost;
 
 						if (fNewCost < fNeighborCost) {
-							eFrontierData.sIdentifier = sKey;
-							eFrontierData.sParentIdentifier = eFrontier.sIdentifier;
-							eFrontierData.mParentNode = mCurrentNode;
-							eFrontierData.iParentEdge = i;
-							eFrontierData.iParentAttachmentFlags = iAttachmentFlags;
-							eFrontierData.mNode = mAttachedNode;
-							eFrontierData.iEdge = iAttachedNodeEdge;
+							eNewFrontierData.sIdentifier = sKey;
+							eNewFrontierData.sParentIdentifier = eFrontier.sIdentifier;
+							eNewFrontierData.mParentNode = mCurrentNode;
+							eNewFrontierData.iParentEdge = i;
+							eNewFrontierData.iParentAttachmentFlags = iAttachmentFlags;
+							eNewFrontierData.mNode = mAttachedNode;
+							eNewFrontierData.iEdge = iAttachedNodeEdge;
 
-							eFrontierData.vecFocalPoint = vecFocalPointNeighbor;
+							eNewFrontierData.vecFocalPoint = vecFocalPointNeighbor;
 
-							eFrontierData.fCost = fNewCost;
-							hFrontierDataMap.SetArray(sKey, eFrontierData, sizeof(FrontierData));
+							eNewFrontierData.fCost = fNewCost;
+							hFrontierDataMap.SetArray(sKey, eNewFrontierData, sizeof(FrontierData));
 
 							if (hFrontier.FindString(sKey) == -1) {
 								Frontier eFrontierNeighbor;
