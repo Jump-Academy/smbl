@@ -16,18 +16,31 @@
 #define WALL_MIN_REACH	50.0
 
 #define PID_SLOW_LAZY	{0.05,	0.001,	0.01}
-#define PID_FAST		{0.1,	0.001,	0.01}
-#define PID_FAST_PREC	{0.1,	0.000,	0.00}
+#define PID_FAST		{0.10,	0.001,	0.01}
+#define PID_FAST_PREC	{0.10,	0.000,	0.00}
+#define PID_VFAST_PREC	{0.50,	0.000,	0.00}
+#define PID_SNAP		{1.00,	0.000,	0.00}
 
-#define COLOR_WHITE		view_as<int>({255, 255, 255, 255})
-#define COLOR_RED		view_as<int>({255, 0, 0, 255})
-#define COLOR_GREEN		view_as<int>({0, 255, 0, 255})
-#define COLOR_BLUE		view_as<int>({0, 0, 255, 255})
-#define COLOR_YELLOW	view_as<int>({255, 255, 0, 255})
-#define COLOR_MAGENTA	view_as<int>({255, 0, 255, 255})
-#define COLOR_CYAN		view_as<int>({0, 255, 255, 255})
+
+#define COLOR_WHITE		{255, 255, 255, 255}
+#define COLOR_RED		{255, 0, 0, 255}
+#define COLOR_GREEN		{0, 255, 0, 255}
+#define COLOR_BLUE		{0, 0, 255, 255}
+#define COLOR_YELLOW	{255, 255, 0, 255}
+#define COLOR_MAGENTA	{255, 0, 255, 255}
+#define COLOR_CYAN		{0, 255, 255, 255}
+#define COLOR_ORANGE	{127, 31, 0, 255}
+
+enum struct OpData_RocketJump {
+	float vecDest[3];
+	any aPadding[13];
+}
+
+ConVar g_hCVGravity;
 
 #include "soldier/rocketjump/wallclimb.sp"
+#include "soldier/rocketjump/groundshot_back.sp"
+#include "soldier/rocketjump/groundshot_down.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Soldier Actions Library: Rocket Jump",
@@ -39,6 +52,10 @@ public Plugin myinfo = {
 
 int g_iLaser;
 int g_iHalo;
+
+public void OnPluginStart() {
+	g_hCVGravity = FindConVar("sv_gravity");
+}
 
 public void OnPluginEnd() {
 	Operation.Deregister();
@@ -57,10 +74,145 @@ public void OnMapStart() {
 
 void Setup_RocketJump() {
 	Operation.Register("Soldier.WallClimb", WallClimb_Init, _, _, _, UnsupportedFunction, _, WallClimb_Cleanup);
+
+	Operation.Register("Soldier.GroundShot.Back", GroundShot_Back_Init);
+	Operation.Register("Soldier.GroundShot.Down", GroundShot_Down_Init);
+
+	// Auto dispatch wrapper
+	Operation.Register("Soldier.RocketJump", RocketJump_Init, _, _, _, UnsupportedFunction, _, _, false, true);
 }
 
-OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
-	return OpRet_Abort;
+// Operation callbacks
+
+OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_RocketJump eOpData) {
+	int iEntity = mBot.iEntity;
+
+	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
+		return mOp._Abort("unsupported TFClassType");
+	}
+
+	int iFollowEntity;
+	if (hInitParams.JumpToKey("follow")) {
+		hInitParams.GoBack();
+		iFollowEntity = hInitParams.GetNum("follow");
+
+		if (!IsValidEntity(iFollowEntity)) {
+			return mOp._Abort("invalid follow entity");
+		}
+	}
+
+	if (!iFollowEntity && !hInitParams.JumpToKey("destination")) {
+		return mOp._Abort("missing destination init parameter");
+	}
+
+	float vecDest[3];
+
+	if (iFollowEntity) {
+		Entity_GetAbsOrigin(iFollowEntity, vecDest);
+	} else {
+		hInitParams.GoBack();
+		hInitParams.GetVector("destination", vecDest);
+	}
+
+	float vecOrigin[3];
+
+	if (hInitParams.JumpToKey("origin")) {
+		hInitParams.GoBack();
+		hInitParams.GetVector("origin", vecOrigin);
+	} else {
+		float vecVel[3];
+		Entity_GetAbsVelocity(iEntity, vecVel);
+		// Wait until bot is stopped on ground before initializing
+		if (!(GetEntityFlags(iEntity) & FL_ONGROUND) || GetVectorLength(vecVel) > 150.0) {
+			return OpRet_Bypass;
+		}
+
+		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
+	}
+
+// 	float fProximity = hInitParams.GetFloat("proximity", GetVectorDistance2D(vecPos, vecDest) < CLOSE_RANGE_CUTOFF ? 15.0 : 100.0);
+	float fProximity = hInitParams.GetFloat("proximity", 0.0);
+	bool bAirBrake = hInitParams.GetNum("airbrake", false) != 0;
+
+	float vecVector[3];
+	SubtractVectors(vecDest, vecOrigin, vecVector);
+	NormalizeVector(vecVector, vecVector);
+	ScaleVector(vecVector, -fProximity);
+	AddVectors(vecDest, vecVector, vecDest);
+
+	bool bHeightPriority = hInitParams.GetNum("height_priority", false) != 0;
+
+	char sOpPriority[64], sOpBackup[64];
+	if (bHeightPriority) {
+		sOpPriority = "Soldier.GroundShot.Down";
+		sOpBackup = "Soldier.GroundShot.Back";
+	} else {
+		sOpPriority = "Soldier.GroundShot.Back";
+		sOpBackup = "Soldier.GroundShot.Down";
+	}
+
+	KeyValues hGroundShotInitParams;
+	Operation mGroundShotOp = Operation.Instance(sOpPriority, hGroundShotInitParams);
+	hGroundShotInitParams.SetVector("origin", vecOrigin);
+	hGroundShotInitParams.SetVector("destination", vecDest);
+
+	if (mGroundShotOp.Init(mBot, true) == OpRet_Abort) {
+		Operation.Destroy(mGroundShotOp);
+		hGroundShotInitParams = null;
+
+		mGroundShotOp = Operation.Instance(sOpBackup, hGroundShotInitParams);
+		hGroundShotInitParams.SetVector("origin", vecOrigin);
+		hGroundShotInitParams.SetVector("destination", vecDest);
+
+		if (mGroundShotOp.Init(mBot, true) == OpRet_Abort) {
+			char sError[256];
+			mGroundShotOp.GetError(sError, sizeof(sError));
+
+			Operation.Destroy(mGroundShotOp);
+
+			return mOp._Abort(sError);
+		}
+	}
+
+// 	DrawDebugLine(vecOrigin, vecDest, COLOR_ORANGE, 5.0);
+
+	//KeyValues hGroundShotInitParams;
+	////Operation mGroundShotOp = Operation.Instance("Soldier.GroundShot.Down", hGroundShotInitParams);
+	//Operation mGroundShotOp = Operation.Instance("Soldier.GroundShot.Back", hGroundShotInitParams);
+	//hGroundShotInitParams.SetVector("destination", vecDest);
+
+	//if (mGroundShotOp.Init(mBot) == OpRet_Abort) {
+	//	char sError[256];
+	//	mGroundShotOp.GetError(sError, sizeof(sError));
+
+	//	Operation.Destroy(mGroundShotOp);
+
+	//	return mOp._Abort(sError);
+	//}
+
+	mOp.AddSubOperation(mGroundShotOp);
+
+	KeyValues hAirStrafeInitParams;
+	Operation mAirStrafeOp = Operation.Instance("Common.AirStrafe", hAirStrafeInitParams, view_as<Op>(1));
+	hAirStrafeInitParams.SetFloat("proximity", 2*fProximity);
+
+	if (bAirBrake) {
+		hAirStrafeInitParams.SetNum("airbrake", true);
+	} else {
+		hAirStrafeInitParams.SetNum("flyby", true);
+	}
+
+	if (iFollowEntity) {
+		hAirStrafeInitParams.SetNum("follow", iFollowEntity);
+	} else {
+		hAirStrafeInitParams.SetVector("destination", vecDest);
+	}
+
+	hAirStrafeInitParams.SetNum("decelerate", true);
+
+	mOp.AddSubOperation(mAirStrafeOp);
+
+	return OpRet_Continue;
 }
 
 // Custom callbacks
@@ -71,46 +223,7 @@ public bool TraceEntityFilter_Environment(int iEntity, int iContentsMask) {
 
 // Helpers
 
-stock void DrawPath(ArrayList hPath, int iStart=0) {
-	for (int i=0; i<iStart && i<hPath.Length-1; i++) {
-		PathData ePathDataA;
-		PathData ePathDataB;
-		hPath.GetArray(i, ePathDataA);
-		hPath.GetArray(i+1, ePathDataB);
-
-		DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, COLOR_WHITE, 0.1);
-	}
-
-	for (int i=iStart; i<hPath.Length-1; i++) {
-		PathData ePathDataA;
-		PathData ePathDataB;
-		hPath.GetArray(i, ePathDataA);
-		hPath.GetArray(i+1, ePathDataB);
-
-		if (ePathDataA.iPathMode == PathMode_Bypass) {
-			DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, COLOR_CYAN, 0.1);
-		} else {
-			int iColor[4];
-
-			switch (i%5) {
-				case 0:
-					iColor = COLOR_RED;
-				case 1:
-					iColor = COLOR_YELLOW;
-				case 2:
-					iColor = COLOR_GREEN;
-				case 3:
-					iColor = COLOR_MAGENTA;
-				case 4:
-					iColor = COLOR_BLUE;
-			}
-
-			DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, iColor, 0.1);
-		}
-	}
-}
-
-stock void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {
+void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {
 	TE_SetupBeamPoints(vecPos, vecPos2, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 1.0, 1, 0.0, iColor, 0);
 	TE_SendToAll();
 }
