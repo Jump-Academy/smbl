@@ -34,11 +34,14 @@
 #define COLOR_BLUE		{  0,   0, 255, 255}
 #define COLOR_MAGENTA	{255,   0, 255, 255}
 
+ConVar g_hCVGravity;
+
 #if defined DEBUG
 int g_iLaser;
 int g_iHalo;
 #endif
 
+#include "common/move/airstrafe.sp"
 #include "common/move/walk.sp"
 #include "common/move/walkfollow.sp"
 
@@ -51,6 +54,7 @@ public Plugin myinfo = {
 };
 
 public void OnPluginStart() {
+	g_hCVGravity = FindConVar("sv_gravity");
 }
 
 public void OnPluginEnd() {
@@ -91,8 +95,16 @@ public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, TFTeam 
 // Helpers
 
 void Setup_Move() {
+	Operation.Register("Common.AirStrafe", AirStrafe_Init, AirStrafe_Validate);
 	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
 	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
+}
+
+stock float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
+	float fDelta0 = vecB[0] - vecA[0];
+	float fDelta1 = vecB[1] - vecA[1];
+
+	return SquareRoot(fDelta0*fDelta0 + fDelta1*fDelta1);
 }
 
 #if defined DEBUG
