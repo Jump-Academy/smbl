@@ -438,11 +438,14 @@ public int Native_GetBots(Handle hPlugin, int iArgC) {
 	ArrayList hBots = GetNativeCell(1);
 
 	int iBotsLength = g_hBots.Length;
-	for (int i=0; i<iBotsLength; i++) {
-		hBots.Push(g_hBots.Get(i));
+
+	if (hBots) {
+		for (int i=0; i<iBotsLength; i++) {
+			hBots.Push(g_hBots.Get(i));
+		}
 	}
 
-	return hBots.Length;
+	return iBotsLength;
 }
 
 public any Native_GetClientBot(Handle hPlugin, int iArgC) {

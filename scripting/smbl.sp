@@ -83,6 +83,8 @@ public void OnPluginStart() {
 	g_hCVBotQuota.AddChangeHook(ConVarChanged_BotQuota);
 	g_hCVBotQuotaMode.AddChangeHook(ConVarChanged_BotQuotaMode);
 
+	RegAdminCmd("smbl_status", cmdStatus, ADMFLAG_ROOT, "Display the resource use of the bot library");
+
 	g_hBots = new ArrayList();
 	g_hDirectors = new ArrayList(sizeof(Director));
 
@@ -261,6 +263,14 @@ public Action Timer_DirectorThink(Handle hTimer) {
 	}
 
 	return Plugin_Continue;
+}
+
+// Commands
+
+public Action cmdStatus(int iClient, int iArgC) {
+	ShowOperationStatus(iClient);
+
+	return Plugin_Handled;
 }
 
 // Helpers

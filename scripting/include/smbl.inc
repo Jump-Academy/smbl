@@ -66,7 +66,7 @@ native bool SMBL_DeregisterDirector(char[] sIdentifier=NULL_STRING);
 native void SMBL_RegisterController(char[] sIdentifier, TFClassType iClass, ControllerThinkFunc fnThink, ControllerMoveFunc fnMove, ControllerEncounterFunc fnEncounter, ControllerAttackFunc fnAttack);
 native bool SMBL_DeregisterController(char[] sIdentifier=NULL_STRING, TFClassType iClass=TFClass_Unknown);
 
-native int SMBL_GetBots(ArrayList hBots);
+native int SMBL_GetBots(ArrayList hBots=null);
 native Bot SMBL_GetClientBot(int iClient);
 
 // native void SMBL_RegisterOperation(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, CleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);

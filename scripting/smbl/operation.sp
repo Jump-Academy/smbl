@@ -1,3 +1,5 @@
+#define OP_ALLOC_MAX	16384
+
 enum struct _OperationTemplate {
 	char sIdentifier[64];
 	Handle hPlugin;
@@ -59,10 +61,10 @@ enum struct _Operation {
 	bool bGCFlag;
 }
 
-StringMap m_hOperationTemplates;
-ArrayList m_hOperations;
+static StringMap m_hOperationTemplates;
+static ArrayList m_hOperations;
 
-int m_iUID;
+static int m_iUID;
 
 // Operations control flow
 
@@ -1247,7 +1249,7 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		Operation mOp;
 		int iFreeIdx = m_hOperations.FindValue(true, _Operation::bGCFlag);
 		if (iFreeIdx != -1) {
-			if (m_hOperations.Length == 16384) {
+			if (m_hOperations.Length == OP_ALLOC_MAX) {
 				ThrowError("Op_Alloc: No free operations");
 			}
 
@@ -1505,4 +1507,58 @@ OpRet InternalAbort(Bot mBot, Operation mOperation, _Operation eOp, char[] sForm
 	Call_Finish();
 
 	return OpRet_Abort;
+}
+
+void ShowOperationStatus(int iClient) {
+	StringMap hOpStatsMap = new StringMap();
+
+	int iTotalOps;
+
+	for (int i=0; i<m_hOperations.Length; i++) {
+		_Operation eOp;
+		m_hOperations.GetArray(i, eOp);
+
+		if (!eOp.bGCFlag) {
+			int iOpCount;
+			hOpStatsMap.GetValue(eOp.sIdentifier, iOpCount);
+			hOpStatsMap.SetValue(eOp.sIdentifier, iOpCount+1);
+
+			iTotalOps++;
+		}
+	}
+
+	char sIdentifier[64];
+	StringMapSnapshot hSnapshot = hOpStatsMap.Snapshot();
+
+	ArrayList hIdentifiers = new ArrayList(ByteCountToCells(sizeof(sIdentifier)));
+
+	for (int i=0; i<hSnapshot.Length; i++) {
+		hSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+		hIdentifiers.PushString(sIdentifier);
+	}
+
+	hIdentifiers.Sort(Sort_Ascending, Sort_String);
+
+	int iBotCount = SMBL_GetBots();
+
+	ReplyToCommand(
+		iClient,
+		"smbl running %d bot%s, %d operation%s of %d max (%d allocated)",
+		iBotCount, iBotCount == 1 ? "" : "s",
+		iTotalOps, iTotalOps == 1 ? "" : "s",
+		OP_ALLOC_MAX, m_hOperations.Length
+	);
+
+	for (int i=0; i<hIdentifiers.Length; i++) {
+		hIdentifiers.GetString(i, sIdentifier, sizeof(sIdentifier));
+
+		int iOpCount;
+		hOpStatsMap.GetValue(sIdentifier, iOpCount);
+
+		ReplyToCommand(iClient, " %4d %s", iOpCount, sIdentifier);
+	}
+
+	delete hSnapshot;
+	delete hIdentifiers;
+	delete hOpStatsMap;
 }
