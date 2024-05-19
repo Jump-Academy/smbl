@@ -936,38 +936,15 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 	bool bAbortAsComplete = GetNativeCell(2);
 
 	_Operation eOp;
-	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
+	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp);
 
-	if (eOp.hSubOpRefs) {
-		int iSubOpRefsLength = eOp.hSubOpRefs.Length;
-		for (int i=0; i<iSubOpRefsLength; i++) {
-			OpRef mSubOpRef = eOp.hSubOpRefs.Get(i);
-			Operation mSubOp = mSubOpRef.ToOperation();
-			if (mSubOp.IsValid()) {
-				Operation.Destroy(mSubOp);
-			}
-		}
-
-		eOp.hSubOpRefs.Clear();
+	// Operation is already completed or aborted
+	if (eOp.iOpState >= OpState_Complete) {
+		return 0;
 	}
-
-	if (eOp.fnCleanup != INVALID_FUNCTION) {
-		Call_StartFunction(eOp.hPlugin, eOp.fnCleanup);
-		Call_PushCell(eOp.mBot);
-		Call_PushCell(mOp);
-		Call_PushCell(eOp.hSequences);
-		Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
-
-		int iCallError = Call_Finish();
-		if (iCallError != SP_ERROR_NONE) {
-			LogStackTrace("Operation.%s(%d) cleanup function call returned error code %d", eOp.sIdentifier, eOp.iUID, iCallError);
-		}
-	}
-
-	eOp.hSequences.Clear();
 
 	eOp.iOpState = bAbortAsComplete ? OpState_Complete : OpState_Abort;
-	m_hOperations.SetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
+	m_hOperations.Set(view_as<int>(mOp)-1, eOp.iOpState, _Operation::iOpState);
 
 	Call_StartForward(eOp.hStateChangeForward);
 	Call_PushCell(eOp.mBot);
@@ -1420,6 +1397,9 @@ public any Native_Operation_DispatchEvent(Handle hPlugin, int iArgC) {
 			Call_PushArrayEx(eOp.eOpData, sizeof(OpData), SM_PARAM_COPYBACK);
 			Call_PushCell(aData);
 			Call_Finish();
+
+			// Update operation state in case Operation.Abort() was called within forward
+			eOp.iOpState = m_hOperations.Get(view_as<int>(mOp)-1, _Operation::iOpState);
 
 			m_hOperations.SetArray(view_as<int>(mOp)-1, eOp);
 		}
