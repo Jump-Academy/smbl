@@ -86,7 +86,7 @@ OpRet MarketGarden_Swing(Bot mBot, Operation mOp, OpData_MarketGarden_Swing eOpD
 
 	if (GetEntityFlags(iEntity) & FL_ONGROUND) {
 		if (eSeqData.iSwingStartTick) {
-			return OpRet_Handled;
+			return mOp._Abort("target took no damage");
 		}
 
 		return mOp._Abort("landed before swing");
@@ -132,7 +132,7 @@ OpRet MarketGarden_Swing(Bot mBot, Operation mOp, OpData_MarketGarden_Swing eOpD
 		if (!eSeqData.iSwingStartTick) {
 			eSeqData.iSwingStartTick = GetGameTickCount();
 		} else if (GetGameTickCount() > eSeqData.iSwingStartTick + 30) {
-			return OpRet_Handled;
+			return mOp._Abort("target took no damage");
 		}
 
 		return OpRet_Continue;

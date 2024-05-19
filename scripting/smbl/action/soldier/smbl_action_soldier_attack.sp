@@ -5,6 +5,9 @@
 #define PLUGIN_AUTHOR "AI"
 #define PLUGIN_VERSION "0.1.0"
 
+#include <sourcemod>
+#include <sdkhooks>
+
 #include <smlib/entities>
 #include <smlib/effects>
 #include <smlib/math>
@@ -24,10 +27,6 @@ enum struct OpData_MarketGarden {
 	int iTargetEntRef;
 	any aPadding[15];
 }
-
-int g_iLaser;
-int g_iHalo;
-
 
 public Plugin myinfo = {
 	name = "SMBL Soldier Actions Library: Attack",
@@ -54,20 +53,15 @@ public void OnLibraryAdded(const char[] sName) {
 	}
 }
 
-public void OnMapStart() {
-	g_iLaser = PrecacheModel("sprites/laserbeam.vmt");
-	g_iHalo = PrecacheModel("materials/sprites/halo01.vmt");
-}
-
 void Setup_Attacks() {
-	Operation.Register("Soldier.MarketGarden.Swing", MarketGarden_Swing_Init);
+	Operation.Register("Soldier.MarketGarden.Swing", MarketGarden_Swing_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Swing_Cleanup);
 
 	// Auto dispatch wrapper
-	//Operation.Register("Soldier.MarketGarden", MarketGarden_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Swing_Cleanup, false, true, true, false);
-	Operation.Register("Soldier.MarketGarden", MarketGarden_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Swing_Cleanup, false, true, true);
+	Operation.Register("Soldier.MarketGarden", MarketGarden_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Cleanup, false, true, true);
 
 	// Internal use
 	Operation.AddEventListener("Soldier.MarketGarden", ".player_death", OpEventFwd_CheckTargetDeath);
+	Operation.AddEventListener("Soldier.MarketGarden", ".target_damage", OpEventFwd_CheckTargetDamage);
 	Operation.AddEventListener("Soldier.MarketGarden.Swing", ".rocket_jump", OpEventFwd_DetectRocketJump);
 	Operation.AddEventListener("Soldier.MarketGarden.Swing", ".rocket_jump_completed", OpEventFwd_RocketJumpCompleted);
 }
@@ -135,9 +129,6 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 
 	mOp.AddSubOperation(mRocketJumpOp);
 
-// 	int iPrimaryWeaponEntityIdx = GetPlayerWeaponSlot(iEntity, TFWeaponSlot_Primary);
-// 	SetEntPropEnt(iEntity, Prop_Send, "m_hActiveWeapon", iPrimaryWeaponEntityIdx);
-
 	KeyValues hMarketGardenSwingInitParams;
 	Operation mMarketGardenSwingOp = Operation.Instance("Soldier.MarketGarden.Swing", hMarketGardenSwingInitParams);
 	hMarketGardenSwingInitParams.SetNum("target", iTargetEntity);
@@ -147,9 +138,16 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 
 	mOp.AddSubOperation(mMarketGardenSwingOp);
 
-// 	DrawDebugLine(vecPos, vecLandingPos, COLOR_RED, 5.0);
+	SDKHook(iTargetEntity, SDKHook_OnTakeDamagePost, SDKHookCB_OnTakeDamagePost_Target);
 
 	return OpRet_Continue;
+}
+
+void MarketGarden_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_MarketGarden_Swing eOpData) {
+	int iTargetEntity = EntRefToEntIndex(eOpData.iTargetEntRef);
+	if (IsValidEntity(iTargetEntity)) {
+		SDKUnhook(iTargetEntity, SDKHook_OnTakeDamagePost, SDKHookCB_OnTakeDamagePost_Target);
+	}
 }
 
 // Custom callbacks
@@ -165,8 +163,24 @@ public Action Event_RocketJump(Event hEvent, const char[] sName, bool bDontBroad
 	return Plugin_Continue;
 }
 
+public void SDKHookCB_OnTakeDamagePost_Target(int iVictim, int iAttacker, int iInflictor, float fDamage, int iDamageType) {
+	Bot mBot = SMBL_GetClientBot(iAttacker);
+	if (mBot) {
+		int iData = (iVictim << 16) | view_as<int>(mBot);
+		Operation.DispatchEvent("Soldier.MarketGarden", ".target_damage", iData);
+	}
+}
+
 public void OpEventFwd_CheckTargetDeath(Bot mBot, Operation mOp, OpData_MarketGarden eOpData, any aData) {
 	if (aData == EntRefToEntIndex(eOpData.iTargetEntRef)) {
+		mOp.Abort(true);
+	}
+}
+
+public void OpEventFwd_CheckTargetDamage(Bot mBot, Operation mOp, OpData_MarketGarden eOpData, any aData) {
+	Bot mAttackerBot = view_as<Bot>(aData & 0xFFFF);
+	int iVictim = aData >>> 16;
+	if (mAttackerBot == mBot && iVictim == EntRefToEntIndex(eOpData.iTargetEntRef)) {
 		mOp.Abort(true);
 	}
 }
@@ -188,11 +202,4 @@ public void OpStateChangeFwd_RocketJumpLaunched(Bot mBot, Operation mOp, OpState
 	if (iOpState == OpState_Complete) {
 		Operation.DispatchEvent("Soldier.MarketGarden.Swing", ".rocket_jump_completed", mBot);
 	}
-}
-
-// Helpers
-
-stock void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {
-	TE_SetupBeamPoints(vecPos, vecPos2, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 1.0, 1, 0.0, iColor, 0);
-	TE_SendToAll();
 }
