@@ -85,6 +85,10 @@ OpRet MarketGarden_Swing(Bot mBot, Operation mOp, OpData_MarketGarden_Swing eOpD
 	int iEntity = mBot.iEntity;
 
 	if (GetEntityFlags(iEntity) & FL_ONGROUND) {
+		if (eSeqData.iSwingStartTick) {
+			return OpRet_Handled;
+		}
+
 		return mOp._Abort("landed before swing");
 	}
 	
