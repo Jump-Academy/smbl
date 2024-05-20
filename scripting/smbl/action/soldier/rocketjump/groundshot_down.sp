@@ -169,10 +169,6 @@ OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 		// d = v0*t + 0.5*g*t^2 = (v0 + 0.5*g*t)*t
 		float fPredictedZ = vecOrigin[2] + (g_fGroundShotParams[i][2] + 0.5*fGravity*fTime2D)*fTime2D;
 
-		// vf = v0 + g*t
-		float fPredictedVelZ = g_fGroundShotParams[i][2] + fGravity*fTime2D;
-
-		//if (fPredictedZ < vecDest[2] && fPredictedVelZ < 0) {
 		if (fPredictedZ < vecDest[2]) {
 			break;
 		}

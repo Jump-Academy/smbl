@@ -100,7 +100,7 @@ void Setup_Move() {
 	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
 }
 
-stock float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
+float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
 	float fDelta0 = vecB[0] - vecA[0];
 	float fDelta1 = vecB[1] - vecA[1];
 
@@ -111,5 +111,12 @@ stock float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
 void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {
 	TE_SetupBeamPoints(vecPos, vecPos2, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 1.0, 1, 0.0, iColor, 0);
 	TE_SendToAll();
+}
+
+void DrawDebugMarker(float vecPos[3], int iColor[4], float fLife) {
+	float vecMarker[3];
+	vecMarker = vecPos;
+	vecMarker[2] += 100.0;
+	DrawDebugLine(vecPos, vecMarker, iColor, fLife);
 }
 #endif

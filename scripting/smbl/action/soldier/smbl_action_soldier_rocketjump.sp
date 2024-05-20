@@ -15,12 +15,13 @@
 
 #define WALL_MIN_REACH	50.0
 
+#define PREDICT_TIME	1.85
+
 #define PID_SLOW_LAZY	{0.05,	0.001,	0.01}
 #define PID_FAST		{0.10,	0.001,	0.01}
 #define PID_FAST_PREC	{0.10,	0.000,	0.00}
 #define PID_VFAST_PREC	{0.50,	0.000,	0.00}
 #define PID_SNAP		{1.00,	0.000,	0.00}
-
 
 #define COLOR_WHITE		{255, 255, 255, 255}
 #define COLOR_RED		{255, 0, 0, 255}
@@ -92,9 +93,14 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	}
 
 	int iFollowEntity;
+	float fFollowDistance;
+	float fFollowZOffset;
+
 	if (hInitParams.JumpToKey("follow")) {
 		hInitParams.GoBack();
 		iFollowEntity = hInitParams.GetNum("follow");
+		fFollowDistance = hInitParams.GetFloat("follow_distance", 0.0);
+		fFollowZOffset = hInitParams.GetFloat("follow_zoffset", 0.0);
 
 		if (!IsValidEntity(iFollowEntity)) {
 			return mOp._Abort("invalid follow entity");
@@ -130,15 +136,27 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
 	}
 
-// 	float fProximity = hInitParams.GetFloat("proximity", GetVectorDistance2D(vecPos, vecDest) < CLOSE_RANGE_CUTOFF ? 15.0 : 100.0);
 	float fProximity = hInitParams.GetFloat("proximity", 0.0);
 	bool bAirBrake = hInitParams.GetNum("airbrake", false) != 0;
 
-	float vecVector[3];
-	SubtractVectors(vecDest, vecOrigin, vecVector);
-	NormalizeVector(vecVector, vecVector);
-	ScaleVector(vecVector, -fProximity);
-	AddVectors(vecDest, vecVector, vecDest);
+	if (iFollowEntity) {
+		float vecFollowVel[3];
+		Entity_GetAbsVelocity(iFollowEntity, vecFollowVel);
+
+		float vecPredictShift[3];
+		vecPredictShift = vecFollowVel;
+		vecPredictShift[2] = 0.0; // 2D shifts only
+		ScaleVector(vecPredictShift, PREDICT_TIME);
+		AddVectors(vecDest, vecPredictShift, vecDest);
+
+		float vecVector[3];
+		SubtractVectors(vecDest, vecOrigin, vecVector);
+		vecVector[2] = 0.0; // Only consider 2D distance
+		NormalizeVector(vecVector, vecVector);
+
+		ScaleVector(vecVector, fFollowDistance);
+		SubtractVectors(vecDest, vecVector, vecDest);
+	}
 
 	bool bHeightPriority = hInitParams.GetNum("height_priority", false) != 0;
 
@@ -174,22 +192,6 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		}
 	}
 
-// 	DrawDebugLine(vecOrigin, vecDest, COLOR_ORANGE, 5.0);
-
-	//KeyValues hGroundShotInitParams;
-	////Operation mGroundShotOp = Operation.Instance("Soldier.GroundShot.Down", hGroundShotInitParams);
-	//Operation mGroundShotOp = Operation.Instance("Soldier.GroundShot.Back", hGroundShotInitParams);
-	//hGroundShotInitParams.SetVector("destination", vecDest);
-
-	//if (mGroundShotOp.Init(mBot) == OpRet_Abort) {
-	//	char sError[256];
-	//	mGroundShotOp.GetError(sError, sizeof(sError));
-
-	//	Operation.Destroy(mGroundShotOp);
-
-	//	return mOp._Abort(sError);
-	//}
-
 	mOp.AddSubOperation(mGroundShotOp);
 
 	KeyValues hAirStrafeInitParams;
@@ -204,6 +206,8 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 
 	if (iFollowEntity) {
 		hAirStrafeInitParams.SetNum("follow", iFollowEntity);
+		hAirStrafeInitParams.SetFloat("follow_distance", fFollowDistance);
+		hAirStrafeInitParams.SetFloat("follow_zoffset", fFollowZOffset);
 	} else {
 		hAirStrafeInitParams.SetVector("destination", vecDest);
 	}

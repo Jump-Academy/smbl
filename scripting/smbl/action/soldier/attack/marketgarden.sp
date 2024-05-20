@@ -98,6 +98,8 @@ OpRet MarketGarden_Swing(Bot mBot, Operation mOp, OpData_MarketGarden_Swing eOpD
 	float vecMins[3], vecMaxs[3];
 	Entity_GetMinSize(iEntity, vecMins);
 	Entity_GetMaxSize(iEntity, vecMaxs);
+	ScaleVector(vecMins, 1.5);
+	ScaleVector(vecMaxs, 1.5);
 
 	float vecPos[3];
 	Entity_GetAbsOrigin(iEntity, vecPos);
@@ -112,7 +114,7 @@ OpRet MarketGarden_Swing(Bot mBot, Operation mOp, OpData_MarketGarden_Swing eOpD
 
 	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
 
-	const float fTimeAhead = 0.25;
+	const float fTimeAhead = 0.24;
 
 	float vecPredictPos[3];
 

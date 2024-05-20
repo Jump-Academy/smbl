@@ -88,29 +88,25 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 
 	eOpData.iTargetEntRef = EntRefToEntIndex(iTargetEntity);
 
-// 	float vecTargetPos[3];
-// 	Entity_GetAbsOrigin(iTargetEntity, vecTargetPos);
+	float vecTargetPos[3];
+	Entity_GetAbsOrigin(iTargetEntity, vecTargetPos);
 
-// 	float vecPos[3];
-// 	Entity_GetAbsOrigin(mBot.iEntity, vecPos);
+	float vecTargetEyePos[3];
+	GetClientEyePosition(iTargetEntity, vecTargetEyePos);
 
-// 	float vecVector[3];
-// 	SubtractVectors(vecTargetPos, vecPos, vecVector);
-// 	NormalizeVector(vecVector, vecVector);
-
-// 	ScaleVector(vecVector, -30.0);
-
-// 	float vecLandingPos[3];
-// 	AddVectors(vecTargetPos, vecVector, vecLandingPos);
+	float vecMaxs[3];
+	Entity_GetMaxSize(iEntity, vecMaxs);
 
 	float fTimestamp = GetEngineTime();
 
 	KeyValues hRocketJumpInitParams;
 	Operation mRocketJumpOp = Operation.Instance("Soldier.RocketJump", hRocketJumpInitParams);
-// 	hRocketJumpInitParams.SetVector("destination", vecLandingPos);
 	hRocketJumpInitParams.SetNum("follow", iTargetEntity);
-	hRocketJumpInitParams.SetFloat("proximity", 36.0);
-// 	hRocketJumpInitParams.SetNum("airbrake", true);
+	hRocketJumpInitParams.SetFloat("follow_distance", 25.0);
+	hRocketJumpInitParams.SetFloat("follow_zoffset", 1.2*vecMaxs[2]);
+	hRocketJumpInitParams.SetFloat("proximity", 15.0);
+	hRocketJumpInitParams.SetNum("decelerate", true);
+	hRocketJumpInitParams.SetNum("airbrake", true);
 
 	if (mRocketJumpOp.Init(mBot) == OpRet_Abort) {
 		char sError[256];
