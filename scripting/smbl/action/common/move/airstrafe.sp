@@ -263,7 +263,13 @@ OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpDat
 	float fAngDisparity;
 	GetAngDiff(vecAng[1], vecAngTangent[1], fAngDisparity);
 
-	if (FloatAbs(fAngDisparity) > 5.0) {
+	float fAbsAngDisparity = FloatAbs(fAngDisparity);
+
+	if (fAbsAngDisparity >= 90.0) {
+		return mOp._Abort("angle deviation is too large")
+	}
+
+	if (fAbsAngDisparity > 5.0) {
 		if (fAngDisparity > 0) {
 			iButtons |= IN_MOVELEFT;
 			vecLocalVel[1] = -400.0;
