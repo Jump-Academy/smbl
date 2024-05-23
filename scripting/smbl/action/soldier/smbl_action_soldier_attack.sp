@@ -160,10 +160,13 @@ public Action Event_RocketJump(Event hEvent, const char[] sName, bool bDontBroad
 }
 
 public void SDKHookCB_OnTakeDamagePost_Target(int iVictim, int iAttacker, int iInflictor, float fDamage, int iDamageType) {
-	Bot mBot = SMBL_GetClientBot(iAttacker);
-	if (mBot) {
-		int iData = (iVictim << 16) | view_as<int>(mBot);
-		Operation.DispatchEvent("Soldier.MarketGarden", ".target_damage", iData);
+	// Ignore damage by world and other non-client entities
+	if (1 <= iAttacker <= MaxClients) {
+		Bot mBot = SMBL_GetClientBot(iAttacker);
+		if (mBot) {
+			int iData = (iVictim << 16) | view_as<int>(mBot);
+			Operation.DispatchEvent("Soldier.MarketGarden", ".target_damage", iData);
+		}
 	}
 }
 
