@@ -2,7 +2,6 @@ enum struct OpData_Groundshot_Back {
 	float vecStart[3];
 	float vecDest[3];
 	any aPadding[10];
-// 	any aPadding[13];
 }
 
 enum struct SeqData_Groundshot_Back_PrepareRocketLauncher {
@@ -87,21 +86,21 @@ OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 	SubtractVectors(vecWalkEndPos, vecTraceStartPos, vecTraceAng);
 	GetVectorAngles(vecTraceAng, vecTraceAng);
 
-	bool bStandingLaunch;
+	bool bStandingLaunch = hInitParams.GetNum("standing_launch", false) != 0;
 
-	TR_TraceRayFilter(vecTraceStartPos, vecTraceAng, MASK_SHOT_HULL, RayType_Infinite, TraceEntityFilter_Environment);
-	if (TR_DidHit()) {
-		float vecTraceEndPos[3];
-		TR_GetEndPosition(vecTraceEndPos);
+	if (!bStandingLaunch) {
+		TR_TraceRayFilter(vecTraceStartPos, vecTraceAng, MASK_SHOT_HULL, RayType_Infinite, TraceEntityFilter_Environment);
+		if (TR_DidHit()) {
+			float vecTraceEndPos[3];
+			TR_GetEndPosition(vecTraceEndPos);
 
-		float fTraceDistance = GetVectorDistance(vecTraceStartPos, vecTraceEndPos);
-		float fExpectedDistance = GetVectorDistance(vecTraceStartPos, vecWalkEndPos);
+			float fTraceDistance = GetVectorDistance(vecTraceStartPos, vecTraceEndPos);
+			float fExpectedDistance = GetVectorDistance(vecTraceStartPos, vecWalkEndPos);
 
-// 		PrintToChatAll("fTraceDistance=%.2f, fExpectedDistance=%.2f", fTraceDistance, fExpectedDistance);
-
-		if (FloatAbs(fTraceDistance-fExpectedDistance) > 10.0) {
-			PrintToServer("Bot is too close to a ledge. Trying standing launch instead.");
-			bStandingLaunch = true;
+			if (FloatAbs(fTraceDistance-fExpectedDistance) > 10.0) {
+				PrintToServer("Bot is too close to a ledge. Trying standing launch instead.");
+				bStandingLaunch = true;
+			}
 		}
 	}
 
@@ -183,7 +182,6 @@ OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 	PrintToServer("Found best pitch angle: %.2f with vel %.2f", fBestPitchAng, fBestVel2D);
 
-
 	SeqData_Groundshot_Back eSeqData;
 	eSeqData.vecDest = vecDest;
 	eSeqData.fHeadingAng = vecTraceAng[1];
@@ -243,7 +241,7 @@ OpRet GroundShot_Back_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Grounds
 		return mOp._Abort("out of rocket ammo");
 	}
 
-	// TODO: Ideally, reload early to prevent running empty on launcher to prevent forced full-clip consecutive reloads
+	// TODO: Ideally, reload early to prevent running empty on launcher to avoid forced full-clip consecutive reloads
 	float fTime = GetGameTime();
 	float fNextAttackTime = GetEntPropFloat(iPrimaryEntityIdx, Prop_Send, "m_flNextPrimaryAttack");
 	if (fNextAttackTime >= fTime || !GetEntProp(iPrimaryEntityIdx, Prop_Send, "m_iClip1")) {

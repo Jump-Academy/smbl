@@ -136,6 +136,8 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
 	}
 
+	bool bStandingLaunch = hInitParams.GetNum("standing_launch", false) != 0;
+
 	float fProximity = hInitParams.GetFloat("proximity", 0.0);
 	bool bAirBrake = hInitParams.GetNum("airbrake", false) != 0;
 
@@ -148,15 +150,15 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		vecPredictShift[2] = 0.0; // 2D shifts only
 		ScaleVector(vecPredictShift, PREDICT_TIME);
 		AddVectors(vecDest, vecPredictShift, vecDest);
-
-		float vecVector[3];
-		SubtractVectors(vecDest, vecOrigin, vecVector);
-		vecVector[2] = 0.0; // Only consider 2D distance
-		NormalizeVector(vecVector, vecVector);
-
-		ScaleVector(vecVector, fFollowDistance);
-		SubtractVectors(vecDest, vecVector, vecDest);
 	}
+
+	float vecVector[3];
+	SubtractVectors(vecDest, vecOrigin, vecVector);
+	vecVector[2] = 0.0; // Only consider 2D distance
+	NormalizeVector(vecVector, vecVector);
+
+	ScaleVector(vecVector, iFollowEntity ? fFollowDistance : fProximity);
+	SubtractVectors(vecDest, vecVector, vecDest);
 
 	bool bHeightPriority = hInitParams.GetNum("height_priority", false) != 0;
 
@@ -173,6 +175,7 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	Operation mGroundShotOp = Operation.Instance(sOpPriority, hGroundShotInitParams);
 	hGroundShotInitParams.SetVector("origin", vecOrigin);
 	hGroundShotInitParams.SetVector("destination", vecDest);
+	hGroundShotInitParams.SetNum("standing_launch", bStandingLaunch);
 
 	if (mGroundShotOp.Init(mBot, true) == OpRet_Abort) {
 		Operation.Destroy(mGroundShotOp);
@@ -181,6 +184,7 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		mGroundShotOp = Operation.Instance(sOpBackup, hGroundShotInitParams);
 		hGroundShotInitParams.SetVector("origin", vecOrigin);
 		hGroundShotInitParams.SetVector("destination", vecDest);
+		hGroundShotInitParams.SetNum("standing_launch", bStandingLaunch);
 
 		if (mGroundShotOp.Init(mBot, true) == OpRet_Abort) {
 			char sError[256];

@@ -19,6 +19,9 @@
 
 #define COLOR_RED		{255, 0, 0, 255}
 
+#define MARKET_GARDEN_MIN_DISTANCE	85.0
+#define STANDING_LAUNCH_RANGE		300.0
+
 ConVar g_hCVGravity;
 
 #include "soldier/attack/marketgarden.sp"
@@ -88,14 +91,27 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 
 	eOpData.iTargetEntRef = EntRefToEntIndex(iTargetEntity);
 
+	float vecPos[3];
+	Entity_GetAbsOrigin(iEntity, vecPos);
+
 	float vecTargetPos[3];
 	Entity_GetAbsOrigin(iTargetEntity, vecTargetPos);
 
-	float vecTargetEyePos[3];
-	GetClientEyePosition(iTargetEntity, vecTargetEyePos);
+	float vecDiff[3];
+	SubtractVectors(vecTargetPos, vecPos, vecDiff);
+
+	float fDist2D = SquareRoot(vecDiff[0]*vecDiff[0] + vecDiff[1]*vecDiff[1]);
+
+	if (fDist2D < MARKET_GARDEN_MIN_DISTANCE) {
+		return mOp._Abort("target is too close");
+	}
 
 	float vecMaxs[3];
 	Entity_GetMaxSize(iEntity, vecMaxs);
+
+	bool bStandingLaunch = fDist2D < STANDING_LAUNCH_RANGE;
+
+	float fFollowZOffset = bStandingLaunch ? 0.25*vecMaxs[2] : 1.2*vecMaxs[2];
 
 	float fTimestamp = GetEngineTime();
 
@@ -103,10 +119,14 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 	Operation mRocketJumpOp = Operation.Instance("Soldier.RocketJump", hRocketJumpInitParams);
 	hRocketJumpInitParams.SetNum("follow", iTargetEntity);
 	hRocketJumpInitParams.SetFloat("follow_distance", 25.0);
-	hRocketJumpInitParams.SetFloat("follow_zoffset", 1.2*vecMaxs[2]);
+	hRocketJumpInitParams.SetFloat("follow_zoffset", fFollowZOffset);
+	hRocketJumpInitParams.SetNum("standing_launch", bStandingLaunch);
 	hRocketJumpInitParams.SetFloat("proximity", 15.0);
-	hRocketJumpInitParams.SetNum("decelerate", true);
-	hRocketJumpInitParams.SetNum("airbrake", true);
+
+	if (!bStandingLaunch) {
+		hRocketJumpInitParams.SetNum("decelerate", true);
+		hRocketJumpInitParams.SetNum("airbrake", true);
+	}
 
 	if (mRocketJumpOp.Init(mBot) == OpRet_Abort) {
 		char sError[256];
