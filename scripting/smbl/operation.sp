@@ -52,8 +52,6 @@ enum struct _Operation {
 	Function fnResume;		// OpFunc
 	Function fnCleanup;		// CleanupFunc
 
-	PrivateForward hEventForward;
-
 	PrivateForward hStateChangeForward;
 	PrivateForward hStepForward;
 	PrivateForward hAbortForward;
@@ -1216,8 +1214,6 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		eOp.fnSuspend = eOperationTemplate.fnSuspend;
 		eOp.fnResume = eOperationTemplate.fnResume;
 		eOp.fnCleanup = eOperationTemplate.fnCleanup;
-
-		eOp.hEventForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
 
 		eOp.hStateChangeForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
 		eOp.hStepForward = new PrivateForward(ET_Hook, Param_Cell, Param_Cell);
