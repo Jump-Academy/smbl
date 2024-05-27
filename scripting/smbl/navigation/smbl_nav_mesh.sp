@@ -523,10 +523,6 @@ enum struct _NavNode {
 		for (int i=1; i<this.iVertices; i++) {
 			this.GetVertex(i, vecVertex);
 
-// 			if (GetOrientation2D(vecPoint, vecLastVertex, vecVertex) != Orientation_CounterClockwise) {
-// 				return false;
-// 			}
-
 			if (GetOrientation2D(vecPoint, vecLastVertex, vecVertex) == Orientation_Clockwise) {
 				return false;
 			}
@@ -534,7 +530,6 @@ enum struct _NavNode {
 			vecLastVertex = vecVertex;
 		}
 
-// 		return GetOrientation2D(vecPoint, vecLastVertex, vecFirstVertex) == Orientation_CounterClockwise;
 		return GetOrientation2D(vecPoint, vecLastVertex, vecFirstVertex) != Orientation_Clockwise;
 	}
 
@@ -666,7 +661,7 @@ public void OnLibraryAdded(const char[] sName) {
 public void OnLibraryRemoved(const char[] sName) {
 	if (StrEqual(sName, "octree")) {
 		g_bOctreeAvailable = false;
-		
+
 		int iNavMeshesLength = g_hNavMeshes.Length;
 		for (int i=0; i<iNavMeshesLength; i++) {
 			g_hNavMeshes.Set(i, NULL_OCTREE, _NavMesh::mOctree);
@@ -680,7 +675,7 @@ public void OnAllPluginsLoaded() {
 
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErrMax) {
 	RegPluginLibrary("smbl_nav_mesh");
-	
+
 	SetupNavNatives();
 	SetupPathNatives();
 
@@ -757,7 +752,7 @@ public int Native_NavNode_SetOrigin(Handle hPlugin, int iArgC) {
 	g_hNavNodes.GetArray(iThis, eNavNode);
 
 	GetNativeArray(2, eNavNode.vecOrigin, sizeof(_NavNode::vecOrigin));
-	
+
 	g_hNavNodes.SetArray(iThis, eNavNode);
 
 	return 0;
@@ -795,7 +790,7 @@ public int Native_NavNode_SetVertex(Handle hPlugin, int iArgC) {
 
 	float vecVertex[3];
 	GetNativeArray(3, vecVertex, sizeof(vecVertex));
-	
+
 	eNavNode.SetVertex(iVertex, vecVertex);
 
 	g_hNavNodes.SetArray(iThis, eNavNode);
@@ -1202,11 +1197,6 @@ public any Native_NavMesh_GetNodes(Handle hPlugin, int iArgC) {
 	int iNavMeshIdx = GetNativeCell(1)-1;
 
 	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
-// 	int iNavNodesLength = hNavNodes;
-
-// 	for (int i=0; i<iNavNodesLength; i++) {
-// 		hList.Push(hNavNodes.Get(i));
-// 	}
 
 	return CloneHandle(hNavNodes, hPlugin);
 }
@@ -1493,7 +1483,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 			}
 		}
 	}
-	
+
 	delete hFile;
 
 	PrintToServer("[SMBL] Loaded nav mesh with %d nodes and %d attachments in %.3f ms", iNavNodesLength, iAttachmentCount, 1000*(GetEngineTime()-fTimestamp));
@@ -1532,7 +1522,7 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 	// 0xE
 	int iPosMapName = hFile.Position;
 	hFile.Write(view_as<int>({0, 0, 0, 0, 0, 0, 0, 0}), 8, 4);
-	
+
 	// 0x2E
 	int iMetaPosNodeData = hFile.Position;
 	hFile.WriteInt32(0);
@@ -1578,7 +1568,7 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 			// Vertex coordinates
 			hFile.WriteInt32(view_as<int>(vecPoint[0]));
 			hFile.WriteInt32(view_as<int>(vecPoint[1]));
-			hFile.WriteInt32(view_as<int>(vecPoint[2]));			
+			hFile.WriteInt32(view_as<int>(vecPoint[2]));
 		}
 	}
 

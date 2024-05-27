@@ -1,7 +1,7 @@
 enum struct OpData_Walk {
 	NavNode mEndNode;
 	float vecDest[3];
-	ArrayList hPathResult;
+	NavPath mNavPath;
 	bool bBeelineStart;
 	float vecLastPos[3];
 	any aPadding[7];
@@ -99,35 +99,30 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mStartNode && mEndNode) {
-		ArrayList hPathResult = new ArrayList(sizeof(PathData));
-		Navigation.FindShortestPath(mStartNode, mEndNode, CostFunc_WalkDrop, hPathResult, _, vecStart, vecEnd);
-		int iPathResultLength = hPathResult.Length;
-		if (!iPathResultLength) {
-			delete hPathResult;
-
+		NavPath mNavPath = Navigation.FindShortestPath(mStartNode, mEndNode, CostFunc_WalkDrop, _, vecStart, vecEnd);
+		if (!mNavPath) {
 			return mOp._Abort("end node is not reachable from start");
 		}
 
-		eOpData.hPathResult = hPathResult;
+		int iPathLength = mNavPath.iLength;
 
-		Navigation.OptimizePath(hPathResult, CostFunc_WalkDrop, _, 0, -1, true);
-		
+		eOpData.mNavPath = mNavPath;
+
+		mNavPath.Optimize(CostFunc_WalkDrop, _, 0, -1, true);
+
 		NavNode mPrevNode;
-		for (int i=0; i<iPathResultLength; i++) {
-			PathData ePathData;
-			hPathResult.GetArray(i, ePathData);
-
+		for (int i=0; i<iPathLength; i++) {
 			SeqData_Walk eSeqData;
-			eSeqData.vecDest = ePathData.vecFocalPoint;
 			eSeqData.mPrevNode = mPrevNode;
-			eSeqData.mCurrentNode = mPrevNode = ePathData.mNavNode;
-			eSeqData.iPathMode = ePathData.iPathMode;
+			mNavPath.Get(i, eSeqData.mCurrentNode, _, _, _, _, eSeqData.iPathMode, eSeqData.vecDest);
+
+			mPrevNode = eSeqData.mCurrentNode;
 
 			Sequence eSeq;
 			eSeq.fnRun = Walk;
 			eSeq.iSeq = view_as<Seq>(iSeqID++);
 			eSeq.SetData(eSeqData);
-			FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.0f %.0f %.0f]", ePathData.vecFocalPoint[0], ePathData.vecFocalPoint[1], ePathData.vecFocalPoint[2]);
+			FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.0f %.0f %.0f]", eSeqData.vecDest[0], eSeqData.vecDest[1], eSeqData.vecDest[2]);
 
 			hSequences.PushArray(eSeq);
 		}
@@ -155,8 +150,8 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 }
 
 OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk eOpData, float fStartTime) {
-	ArrayList hPath = view_as<ArrayList>(eOpData.hPathResult);
-	if (hPath) {
+	NavPath mNavPath = eOpData.mNavPath;
+	if (mNavPath) {
 		if (hSequences.Length) {
 			Sequence eSeq;
 			hSequences.GetArray(0, eSeq);
@@ -200,9 +195,9 @@ OpRet Walk_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk e
 		}
 
 #if defined DEBUG
-		int iDrawOffset = hPath.Length-hSequences.Length-view_as<int>(eOpData.bBeelineStart);
+		int iDrawOffset = mNavPath.iLength-hSequences.Length-view_as<int>(eOpData.bBeelineStart);
 		if (iDrawOffset >= 0) {
-			DrawPath(hPath, iDrawOffset);
+			DrawPath(mNavPath, iDrawOffset);
 		}
 #endif
 
@@ -237,7 +232,7 @@ void Walk_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk eOp
 		mBot.SetLocalVelocity({0.0, 0.0, 0.0});
 	}
 
-	delete view_as<ArrayList>(eOpData.hPathResult);
+	NavPath.Destroy(eOpData.mNavPath);
 }
 
 // Sequences
@@ -309,7 +304,7 @@ OpRet Walk(Bot mBot, Operation mOp, OpData_Walk eOpData, SeqData_Walk eSeqData, 
 		vecProbeMaxs[0] = fProbeHalfWidth;
 		vecProbeMaxs[1] = fProbeHalfWidth;
 		vecProbeMaxs[2] = vecMaxs[2];
-		
+
 		float vecProbeLeftPos[3];
 		vecProbeLeftPos[0] = vecPos[0] + fDiag*Cosine(DegToRad(vecAng[1]) + fAngOffset);
 		vecProbeLeftPos[1] = vecPos[1] + fDiag*Sine(DegToRad(vecAng[1]) + fAngOffset);
@@ -334,7 +329,7 @@ OpRet Walk(Bot mBot, Operation mOp, OpData_Walk eOpData, SeqData_Walk eSeqData, 
 
 // 		Effect_DrawBeamBoxToAll(vecHullMins, vecHullMaxs, g_iLaser, g_iHalo, 0, 66, 0.1, 1.0, 1.0, 1, 0.0, COLOR_BLUE, 0);
 // #endif
-		
+
 		float vecProbeRightPos[3];
 		vecProbeRightPos[0] = vecPos[0] + fDiag*Cosine(DegToRad(vecAng[1]) - fAngOffset);
 		vecProbeRightPos[1] = vecPos[1] + fDiag*Sine(DegToRad(vecAng[1]) - fAngOffset);
@@ -406,24 +401,28 @@ int GetAngDiff(float fAngA, float fAngB, float &fDiff) {
 }
 
 #if defined DEBUG
-stock void DrawPath(ArrayList hPath, int iStart=0) {
-	for (int i=0; i<iStart && i<hPath.Length-1; i++) {
-		PathData ePathDataA;
-		PathData ePathDataB;
-		hPath.GetArray(i, ePathDataA);
-		hPath.GetArray(i+1, ePathDataB);
+void DrawPath(NavPath mNavPath, int iStart=0, float fLife=0.1) {
+	for (int i=0; i<iStart && i<mNavPath.iLength-1; i++) {
+		float vecPointA[3];
+		float vecPointB[3];
 
-		DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, COLOR_GRAY, 0.1);
+		mNavPath.Get(i, _, _, _, _, _, _, vecPointA);
+		mNavPath.Get(i+1, _, _, _, _, _, _, vecPointB);
+
+		DrawDebugLine(vecPointA, vecPointB, COLOR_GRAY, fLife);
 	}
 
-	for (int i=iStart; i<hPath.Length-1; i++) {
-		PathData ePathDataA;
-		PathData ePathDataB;
-		hPath.GetArray(i, ePathDataA);
-		hPath.GetArray(i+1, ePathDataB);
+	for (int i=iStart; i<mNavPath.iLength-1; i++) {
+		float vecPointA[3];
+		float vecPointB[3];
 
-		if (ePathDataA.iPathMode == PathMode_Bypass) {
-			DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, COLOR_WHITE, 0.1);
+		PathMode iPathModeA;
+
+		mNavPath.Get(i, _, _, _, _, _, iPathModeA, vecPointA);
+		mNavPath.Get(i+1, _, _, _, _, _, _, vecPointB);
+
+		if (iPathModeA == PathMode_Bypass) {
+			DrawDebugLine(vecPointA, vecPointB, COLOR_WHITE, fLife);
 		} else {
 			int iColor[4];
 
@@ -440,7 +439,7 @@ stock void DrawPath(ArrayList hPath, int iStart=0) {
 					iColor = COLOR_MAGENTA;
 			}
 
-			DrawDebugLine(ePathDataA.vecFocalPoint, ePathDataB.vecFocalPoint, iColor, 0.1);
+			DrawDebugLine(vecPointA, vecPointB, iColor, fLife);
 		}
 	}
 }

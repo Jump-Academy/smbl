@@ -27,6 +27,7 @@
 #include "smbl/controller.sp"
 #include "smbl/director.sp"
 #include "smbl/operation.sp"
+#include "smbl/utility.sp"
 
 #define PID_DEFAULT		{0.2,	0.001,	0.65}
 #define PID_SLOW_LAZY	{0.05,	0.001,	0.01}
@@ -103,6 +104,7 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErr
 	SetupOperationNatives();
 	SetupControllerNatives();
 	SetupDirectorNatives();
+	SetupUtilityNatives();
 
 	return APLRes_Success;
 }
