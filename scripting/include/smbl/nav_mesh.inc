@@ -4,6 +4,7 @@
 #define _SMBL_NAV_MESH_included
 
 #include <sourcemod>
+#include <smbl/utility/localdatapack>
 
 public SharedPlugin __pl_smbl_nav_mesh = {
 	name = "smbl_nav_mesh",
@@ -28,13 +29,13 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavNode.GetEdgeVertices");
 	MarkNativeAsOptional("NavNode.GetEdgeOverlap");
 
-	MarkNativeAsOptional("NavNode.PushAttachment");	
-	MarkNativeAsOptional("NavNode.EraseAttachment");	
-	MarkNativeAsOptional("NavNode.GetAttachment");	
-	MarkNativeAsOptional("NavNode.SetAttachment");	
-	MarkNativeAsOptional("NavNode.FindAttachment");	
-	MarkNativeAsOptional("NavNode.ClearAttachments");	
-	MarkNativeAsOptional("NavNode.GetAttachmentsLength");	
+	MarkNativeAsOptional("NavNode.PushAttachment");
+	MarkNativeAsOptional("NavNode.EraseAttachment");
+	MarkNativeAsOptional("NavNode.GetAttachment");
+	MarkNativeAsOptional("NavNode.SetAttachment");
+	MarkNativeAsOptional("NavNode.FindAttachment");
+	MarkNativeAsOptional("NavNode.ClearAttachments");
+	MarkNativeAsOptional("NavNode.GetAttachmentsLength");
 
 	MarkNativeAsOptional("NavNode.Contains");
 
@@ -66,6 +67,7 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 
 #define NULL_NAV_NODE	view_as<NavNode>(0)
 #define NULL_NAV_MESH	view_as<NavMesh>(0)
+#define NULL_NAV_PATH	view_as<NavPath>(0)
 
 #define MAX_NODE_VERTICES		8
 #define MAX_EDGE_ATTACHMENTS	8
@@ -159,24 +161,59 @@ enum PathMode {
 	PathMode_Bypass
 }
 
-enum struct PathData {
-	NavNode mNavNode;
-	int iEntryEdge;
-	int iExitEdge;
-	int iExitAttachmentFlags;
-	PathMode iPathMode;
-	float vecFocalPoint[3];
+methodmap NavPath {
+	property int iLength {
+		public native get();
+	}
+
+	property float fCost {
+		public native get();
+	}
+
+	public native void Get(int iIndex, NavNode &mNavNode=NULL_NAV_NODE, int &iEntryEdge=-1, int &iExitEdge=-1, int &iExitAttachmentFlags=0, LocalDataPack &mEdgeData=NULL_LOCAL_DATAPACK, PathMode &iPathMode=PathMode_Normal, float vecFocalPoint[3]={NaN, NaN, NaN});
+	public native void Optimize(CostFunc fnCostFunction, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
+
+	public static native void Destroy(NavPath &mNavPath);
 }
 
 methodmap Navigation {
-	public static native float FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, ArrayList hPathResult, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
-	public static native void OptimizePath(ArrayList hPath, CostFunc fnCostFunction, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
-	public static native float FindNearby(NavNode mStartNode, CostFunc fnCostFunction, ArrayList hPathResult, any aData=0, float vecStartPos[3]={NaN, NaN, NaN});
+	/**
+	 * Finds the shortest path from a start node to a goal using A* graph traversal
+	 * If end node is not specified as the goal, this will run breadth-first search (no heuristic) unless the cost function marks a goal.
+	 *
+	 * @param mStartNode		Node to start the search from
+	 * @param mEndNode			Node to end search (or NULL_NAV_NODE for run BFS)
+	 * @param aData				Optional data to pass to search function
+	 * @param vecStartPos		Optional position within start node
+	 * @param vecEndPos			Optional position within end node
+	 * @return					Navigation path (or NULL_NAV_PATH if goal is unreachable), must be destroyed with NavPath.Destroy().
+	 **/
+	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
 }
 
+/**
+ * Cost functions used to find the shortest path
+ */
 typeset CostFunc {
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData, bool &bStop);
+	/**
+	 * Called to calculate the cost or heuristic between two nodes
+	 *
+	 * @param mNodeA			Source node
+	 * @param iEdgeA			Exit edge from source node
+	 * @param mNodeB			Destination node
+	 * @param iEdgeB			Entry edge from destination node
+	 * @param iAttachmentFlags	Bit flags from source node edge for this attachment
+	 * @param vecPosA			Position within source node
+	 * @param vecPosB			Position within destination node
+	 * @param bHeuristic		True if callback is requesting heuristic value, false if requesting edge cost
+	 * @param aData				Optional data passed to the search
+	 * @param mEdgeData			Local data pack provided to optionally store metadata about this attachment to be included with the navigation path data.  It is automatically cleaned up during NavPath.Destroy().
+	 * @param bMarkGoalNode		Marks destination node as a goal node to terminate the search
+	 * @param bMarkGoalEdge		Marks source node exit edge as a candidate goal edge (search ends with the last node as the source node with a focal point on the edge goal, if the path from the search start node to this goal edge has the lowest cost of all paths leading to goal edge candidates)
+	 */
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic);
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData, LocalDataPack mEdgeData);
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
 }
 
 native bool SMBL_RegisterNavMesh(char[] sIdentifier, NavMesh mNavMesh);
