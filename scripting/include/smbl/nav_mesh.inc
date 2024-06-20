@@ -171,7 +171,7 @@ methodmap NavPath {
 	}
 
 	public native void Get(int iIndex, NavNode &mNavNode=NULL_NAV_NODE, int &iEntryEdge=-1, int &iExitEdge=-1, int &iExitAttachmentFlags=0, LocalDataPack &mEdgeData=NULL_LOCAL_DATAPACK, PathMode &iPathMode=PathMode_Normal, float vecFocalPoint[3]={NaN, NaN, NaN});
-	public native void Optimize(CostFunc fnCostFunction, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
+	public native void Optimize(CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
 
 	public static native void Destroy(NavPath &mNavPath);
 }
@@ -183,12 +183,14 @@ methodmap Navigation {
 	 *
 	 * @param mStartNode		Node to start the search from
 	 * @param mEndNode			Node to end search (or NULL_NAV_NODE for run BFS)
+	 * @param fnCostFunction	Cost function for the graph
+	 * @param fnCleanup			Optional cleanup function for custom data added to the mEdgeData LocalDataPack while inside the cost function
 	 * @param aData				Optional data to pass to search function
 	 * @param vecStartPos		Optional position within start node
 	 * @param vecEndPos			Optional position within end node
 	 * @return					Navigation path (or NULL_NAV_PATH if goal is unreachable), must be destroyed with NavPath.Destroy().
 	 **/
-	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
+	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
 }
 
 /**

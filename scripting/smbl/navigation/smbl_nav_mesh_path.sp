@@ -106,11 +106,17 @@ public any Native_NavPath_Get(Handle hPlugin, int iArgC) {
 
 public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
-	Function fnCostFunc = GetNativeCell(2);
-	any aData = GetNativeCell(3);
-	int iStartIdx = GetNativeCell(4);
-	int iEndIdx = GetNativeCell(5);
-	bool bBypassWithLOS = GetNativeCell(6);
+	Function fnCostFunc = GetNativeFunction(2);
+	Function fnCleanup = GetNativeFunction(3);
+	any aData = GetNativeCell(4);
+	int iStartIdx = GetNativeCell(5);
+	int iEndIdx = GetNativeCell(6);
+	bool bBypassWithLOS = GetNativeCell(7);
+
+	Handle hCleanupPlugin;
+	if (fnCleanup != INVALID_FUNCTION) {
+		hCleanupPlugin = hPlugin;
+	}
 
 	ArrayList hPathData = g_hNavPaths.Get(iThis, _NavPath::hPathData);
 
@@ -292,7 +298,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 				float fNeighborCostA = hFrontierDataMap.GetArray(sKeyA, eNewVertexFrontierData, sizeof(VertexFrontierData)) ? eVertexFrontierData.fCost : POSITIVE_INFINITY;
 
-				LocalDataPack mEdgeData = LocalDataPack.Instance();
+				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
 				Call_PushCell(mPrevNode);
@@ -373,7 +379,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 				float fNeighborCostB = hFrontierDataMap.GetArray(sKeyB, eNewVertexFrontierData, sizeof(VertexFrontierData)) ? eNewVertexFrontierData.fCost : POSITIVE_INFINITY;
 
-				LocalDataPack mEdgeData = LocalDataPack.Instance();
+				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
 				Call_PushCell(mPrevNode);
@@ -454,7 +460,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 				float fNeighborCostEnd = hFrontierDataMap.GetArray(sKeyEnd, eNewVertexFrontierData, sizeof(VertexFrontierData)) ? eNewVertexFrontierData.fCost : POSITIVE_INFINITY;
 
-				LocalDataPack mEdgeData = LocalDataPack.Instance();
+				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
 				Call_PushCell(ePathData.mNavNode);
@@ -564,11 +570,17 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 	}
 
 	Function fnCostFunc = GetNativeFunction(3);
+	Function fnCleanup = GetNativeFunction(4);
 
-	any aData = GetNativeCell(4);
+	Handle hCleanupPlugin;
+	if (fnCleanup != INVALID_FUNCTION) {
+		hCleanupPlugin = hPlugin;
+	}
+
+	any aData = GetNativeCell(5);
 
 	float vecStartPos[3];
-	GetNativeArray(5, vecStartPos, sizeof(vecStartPos));
+	GetNativeArray(6, vecStartPos, sizeof(vecStartPos));
 
 	bool bCustomStartPos = vecStartPos[0] == vecStartPos[0] && vecStartPos[1] == vecStartPos[1] && vecStartPos[2] == vecStartPos[2];
 	if (!bCustomStartPos) {
@@ -579,7 +591,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 	}
 
 	float vecEndPos[3];
-	GetNativeArray(6, vecEndPos, sizeof(vecEndPos));
+	GetNativeArray(7, vecEndPos, sizeof(vecEndPos));
 
 	if (mEndNode) {
 		bool bCustomEndPos = vecEndPos[0] == vecEndPos[0] && vecEndPos[1] == vecEndPos[1] && vecEndPos[2] == vecEndPos[2];
@@ -657,7 +669,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 					mCurrentNode.GetEdgeCenter(i, vecFocalPointNeighbor);
 				}
 
-				LocalDataPack mEdgeData = LocalDataPack.Instance();
+				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool bMarkGoalNode;
 				bool bMarkGoalEdge;
 				Call_StartFunction(hPlugin, fnCostFunc);
@@ -734,7 +746,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 					if (hFrontierDataMap.GetArray(eFrontierData.sParentIdentifier, eParentData, sizeof(FrontierData))) {
 						LocalDataPack.Destroy(mEdgeData);
 
-						mEdgeData = LocalDataPack.Instance();
+						mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 						bool _bIgnore;
 						Call_StartFunction(hPlugin, fnCostFunc);
 						Call_PushCell(eParentData.mNode);

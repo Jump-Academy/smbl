@@ -33,8 +33,10 @@ methodmap LocalDataPack {
 		public native set(DataPackPos iPos);
 	}
 
-	public static native LocalDataPack Instance();
+	public static native LocalDataPack Instance(Function fnLocalDataPackCleanup=INVALID_FUNCTION, Handle hCleanupPlugin=null);
 	public static native void Destroy(LocalDataPack &mLocalDataPack);
 }
 
 #define NULL_LOCAL_DATAPACK view_as<LocalDataPack>(0)
+
+typedef LocalDataPackCleanupFunc = function void (LocalDataPack mLocalDataPack);
