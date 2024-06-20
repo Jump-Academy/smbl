@@ -1,10 +1,13 @@
+#define DEFAULT_GOAL_PROXIMITY	50.0
+
 enum struct OpData_Walk {
 	NavNode mEndNode;
 	float vecDest[3];
 	NavPath mNavPath;
 	bool bBeelineStart;
 	float vecLastPos[3];
-	any aPadding[7];
+	float fGoalProximity;
+	any aPadding[6];
 }
 
 enum struct SeqData_Walk {
@@ -20,7 +23,7 @@ enum struct SeqData_Walk {
 // Operation callbacks
 
 OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Walk eOpData) {
-	float vecStart[3], vecEnd[3], vecEntity[3], vecDest[3];
+	float vecStart[3], vecEnd[3], vecOrigin[3], vecDest[3];
 
 	NavMesh mNavMesh = view_as<NavMesh>(hInitParams.GetNum("nav_mesh", view_as<int>(NULL_NAV_MESH)));
 
@@ -38,14 +41,19 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	hInitParams.GoBack();
 	hInitParams.GetVector("destination", vecDest);
 
-	Entity_GetAbsOrigin(mBot.iEntity, vecEntity);
+	if (hInitParams.JumpToKey("origin")) {
+		hInitParams.GoBack();
+		hInitParams.GetVector("origin", vecOrigin);
+	} else {
+		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
+	}
 
 	bool bBeelineStart, bBeelineEnd;
 
 	if (!mStartNode) {
-		mStartNode = mNavMesh.GetNearestNodeInRange(vecEntity, NODE_PROXIMITY, true, 20.0);
+		mStartNode = mNavMesh.GetNearestNodeInRange(vecOrigin, NODE_PROXIMITY, true, 20.0);
 		if (!mStartNode) {
-			mStartNode = mNavMesh.GetNearestNodeInRange(vecEntity, 4*NODE_PROXIMITY);
+			mStartNode = mNavMesh.GetNearestNodeInRange(vecOrigin, 4*NODE_PROXIMITY);
 
 			PrintToServer("SMBL: Starting point is not within mesh.  Beeline %s.", mStartNode ? "to closest node" : "it");
 			bBeelineStart = true;
@@ -53,10 +61,10 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mStartNode) {
-		if (mStartNode.Contains(vecEntity)) {
-			vecStart = vecEntity;
+		if (mStartNode.Contains(vecOrigin)) {
+			vecStart = vecOrigin;
 		} else {
-			mStartNode.GetHullProjection(vecEntity, vecStart);
+			mStartNode.GetHullProjection(vecOrigin, vecStart);
 			PrintToServer("Projected start to hull point: (%.1f, %.1f, %.1f)", vecStart[0], vecStart[1], vecStart[2]);
 		}
 
@@ -83,6 +91,8 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		}
 	}
 
+	eOpData.fGoalProximity = hInitParams.GetFloat("goal_proximity", DEFAULT_GOAL_PROXIMITY);
+
 	int iSeqID;
 
 	if (bBeelineStart && mStartNode) {
@@ -99,7 +109,7 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mStartNode && mEndNode) {
-		NavPath mNavPath = Navigation.FindShortestPath(mStartNode, mEndNode, CostFunc_WalkDrop, _, vecStart, vecEnd);
+		NavPath mNavPath = Navigation.FindShortestPath(mStartNode, mEndNode, CostFunc_WalkDrop, _, _, vecStart, vecEnd);
 		if (!mNavPath) {
 			return mOp._Abort("end node is not reachable from start");
 		}
@@ -108,7 +118,7 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 
 		eOpData.mNavPath = mNavPath;
 
-		mNavPath.Optimize(CostFunc_WalkDrop, _, 0, -1, true);
+		mNavPath.Optimize(CostFunc_WalkDrop, _, _, 0, -1, true);
 
 		NavNode mPrevNode;
 		for (int i=0; i<iPathLength; i++) {
@@ -252,7 +262,7 @@ OpRet Walk(Bot mBot, Operation mOp, OpData_Walk eOpData, SeqData_Walk eSeqData, 
 
 	if (eSeqData.iPathMode == PathMode_Bypass) {
 		return OpRet_Handled;
-	} else if (fDist2D < NODE_MIN_REACH) {
+	} else if (fDist2D < eOpData.fGoalProximity) {
 		eOpData.vecLastPos = eSeqData.vecDest;
 		return OpRet_Handled;
 	}

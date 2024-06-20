@@ -54,7 +54,11 @@ enum struct Sequence {
 	}
 }
 
-typedef OpInitFunc = function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData);
+typeset OpInitFunc {
+	function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData);
+	function OpRet (Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData eOpData, bool bConfigureOnly);
+}
+
 typedef OpValidateFunc = function OpRet (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData, float fStartTime);
 typedef OpFunc = function OpRet (Bot mBot, Operation mOp, OpData eOpData);
 typedef OpCleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSequences, OpData eOpData);
@@ -134,11 +138,13 @@ methodmap Operation {
 	public native bool RemoveAbortForward(OpAbortFwd fnForward);
 
 	/**
-	 * Pre-initialize the Operation (optional, but can be used to check if runnable)
+	 * Pre-initialize the Operation
+	 *
+	 * Use Operation.Configure() to check if runnable to avoid unnecessary instantiation
 	 *
 	 * @param mBot			Bot to bind this Operation to
 	 * @param bSilentFail	If set to true, failed initializations do not return an error or mark the Operation as aborted
-	 * @return Returns OpRet_Abort if the Operation failed to initalize, OpRet_Continue otherwise
+	 * @return Returns OpRet_Abort if the Operation failed to initialize, OpRet_Continue otherwise
 	*/
 	public native OpRet Init(Bot mBot, bool bSilentFail=false);
 
@@ -167,6 +173,22 @@ methodmap Operation {
 	public static native Operation Instance(char[] sIdentifier, KeyValues &hInitParms=null, Op iOp=view_as<Op>(0));
 	public static native void Destroy(Operation &mOp);
 
+	/**
+	 * Configures initialization parameters from an Operation template
+	 *
+	 * Use this to prepare configuration parameters for an Operation without instantiating one first.
+	 * This calls the initialization callback like Operation.Init but with bConfigureOnly set to true
+	 * and null hSequences and null hSubOpRefs.  Writes to eOpData will be ignored.
+	 *
+	 * This can be used to check in advance if parameters are feasible to initialize an Operation.
+	 *
+	 * @param sIdentifier	Identifier for the Operation template
+	 * @param hInitParams	Parameters to initialize the Operation and write the OP_INIT_CONFIG configuration subtree
+	 * @param mBot			Bot to configure this Operation on
+	 * @return Returns true if the initialization callback returns OpRet_Continue and false otherwise
+	 */
+	public static native bool Configure(char[] sIdentifier, KeyValues &hInitParams, Bot mBot);
+
 	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
 	public static native bool RemoveEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
 	public static native bool DispatchEvent(char[] sIdentifier, char[] sEvent, any aData=0);
@@ -175,3 +197,8 @@ methodmap Operation {
 methodmap OpRef {
 	public native Operation ToOperation();
 }
+
+#define OP_INIT_DISPATCH	"Init.Dispatch"
+#define OP_INIT_IDENT		"Init.Identifier"
+#define OP_INIT_PARAM		"Init.Param"
+#define OP_INIT_CONFIG		"Init.Config"

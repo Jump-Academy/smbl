@@ -160,7 +160,16 @@ public any Native_LocalDataPack_Reset(Handle hPlugin, int iArgC) {
 	DataPack hDataPack = GetNativeCell(1);
 	bool bClear = GetNativeCell(2);
 
-	hDataPack.Reset(bClear);
+	hDataPack.Reset();
+
+	Handle hCleanupPlugin = hDataPack.ReadCell();
+	Function fnCleanup = hDataPack.ReadFunction();
+
+	if (bClear) {
+		hDataPack.Reset(true);
+		hDataPack.WriteCell(hCleanupPlugin);
+		hDataPack.WriteFunction(fnCleanup);
+	}
 
 	return 0;
 }
@@ -175,7 +184,14 @@ public any Native_LocalDataPack_IsReadable(Handle hPlugin, int iArgC) {
 public any Native_LocalDataPack_Clone(Handle hPlugin, int iArgC) {
 	DataPack hDataPack = GetNativeCell(1);
 
-	return hDataPack ? view_as<LocalDataPack>(CloneHandle(hDataPack)) : NULL_LOCAL_DATAPACK;
+	if (hDataPack) {
+		LocalDataPack hCloneDataPack = view_as<LocalDataPack>(CloneHandle(hDataPack));
+		hCloneDataPack.Reset(); // Move DataPackPos past cleanup plugin and function
+
+		return hCloneDataPack;
+	}
+
+	return NULL_LOCAL_DATAPACK;
 }
 
 public any Native_LocalDataPack_GetPosition(Handle hPlugin, int iArgC) {
@@ -188,17 +204,52 @@ public any Native_LocalDataPack_SetPosition(Handle hPlugin, int iArgC) {
 	DataPack hDataPack = GetNativeCell(1);
 	DataPackPos iPosition = GetNativeCell(2);
 
+	hDataPack.Reset();
+	hDataPack.ReadCell();
+	hDataPack.ReadFunction();
+
+	if (iPosition < hDataPack.Position) {
+		ThrowError("Inaccessible position");
+	}
+
 	hDataPack.Position = iPosition;
 
 	return 0;
 }
 
 public any Native_LocalDataPack_Instance(Handle hPlugin, int iArgC) {
-	return new DataPack();
+	Function fnCleanupFunc = GetNativeFunction(1);
+	Handle hCleanupPlugin = GetNativeCell(2);
+
+	DataPack hDataPack = new DataPack();
+
+	if (fnCleanupFunc == INVALID_FUNCTION) {
+		hDataPack.WriteCell(0); // null
+		hDataPack.WriteFunction(INVALID_FUNCTION);
+	} else {
+		hDataPack.WriteCell(hCleanupPlugin ? hCleanupPlugin : hPlugin);
+		hDataPack.WriteFunction(fnCleanupFunc);
+	}
+
+	return hDataPack;
 }
 
 public any Native_LocalDataPack_Destroy(Handle hPlugin, int iArgC) {
 	DataPack hDataPack = GetNativeCellRef(1);
+	if (!hDataPack) {
+		return 0;
+	}
+
+	hDataPack.Reset();
+
+	Handle hCleanupPlugin = hDataPack.ReadCell();
+	Function fnCleanup = hDataPack.ReadFunction();
+
+	if (fnCleanup != INVALID_FUNCTION) {
+		Call_StartFunction(hCleanupPlugin, fnCleanup);
+		Call_PushCell(hDataPack);
+		Call_Finish();
+	}
 
 	delete hDataPack;
 	SetNativeCellRef(1, NULL_LOCAL_DATAPACK);

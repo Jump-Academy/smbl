@@ -171,7 +171,7 @@ methodmap NavPath {
 	}
 
 	public native void Get(int iIndex, NavNode &mNavNode=NULL_NAV_NODE, int &iEntryEdge=-1, int &iExitEdge=-1, int &iExitAttachmentFlags=0, LocalDataPack &mEdgeData=NULL_LOCAL_DATAPACK, PathMode &iPathMode=PathMode_Normal, float vecFocalPoint[3]={NaN, NaN, NaN});
-	public native void Optimize(CostFunc fnCostFunction, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
+	public native void Optimize(CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, int iStartIdx=0, int iEndIdx=-1, bool bBypassWithLOS=false);
 
 	public static native void Destroy(NavPath &mNavPath);
 }
@@ -183,12 +183,14 @@ methodmap Navigation {
 	 *
 	 * @param mStartNode		Node to start the search from
 	 * @param mEndNode			Node to end search (or NULL_NAV_NODE for run BFS)
+	 * @param fnCostFunction	Cost function for the graph
+	 * @param fnCleanup			Optional cleanup function for custom data added to the mEdgeData LocalDataPack while inside the cost function
 	 * @param aData				Optional data to pass to search function
 	 * @param vecStartPos		Optional position within start node
 	 * @param vecEndPos			Optional position within end node
 	 * @return					Navigation path (or NULL_NAV_PATH if goal is unreachable), must be destroyed with NavPath.Destroy().
 	 **/
-	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
+	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
 }
 
 /**
@@ -205,15 +207,17 @@ typeset CostFunc {
 	 * @param iAttachmentFlags	Bit flags from source node edge for this attachment
 	 * @param vecPosA			Position within source node
 	 * @param vecPosB			Position within destination node
+	 * @param bNodeAStart		True if mNodeA is the start node
+	 * @param bNodeBGoal		True if mNodeB is the end goal node
 	 * @param bHeuristic		True if callback is requesting heuristic value, false if requesting edge cost
 	 * @param aData				Optional data passed to the search
 	 * @param mEdgeData			Local data pack provided to optionally store metadata about this attachment to be included with the navigation path data.  It is automatically cleaned up during NavPath.Destroy().
 	 * @param bMarkGoalNode		Marks destination node as a goal node to terminate the search
 	 * @param bMarkGoalEdge		Marks source node exit edge as a candidate goal edge (search ends with the last node as the source node with a focal point on the edge goal, if the path from the search start node to this goal edge has the lowest cost of all paths leading to goal edge candidates)
 	 */
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData, LocalDataPack mEdgeData);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic);
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData);
+	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
 }
 
 native bool SMBL_RegisterNavMesh(char[] sIdentifier, NavMesh mNavMesh);

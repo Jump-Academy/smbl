@@ -1392,6 +1392,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	char sIdentifier[8];
 	if (hFile.ReadString(sIdentifier, sizeof(sIdentifier)) == -1 || !StrEqual("SMBLNAV", sIdentifier)) {
 		LogError("Not a SMBL nav file: %s %s", sIdentifier, sFilePath);
+		delete hFile;
 		return NULL_NAV_MESH;
 	}
 

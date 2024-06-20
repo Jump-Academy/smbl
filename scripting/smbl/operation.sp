@@ -81,8 +81,6 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 
 	switch (eOp.iOpState) {
 		case OpState_Pend: {
-			eOp.hInitParams.Rewind();
-
 			PrintToServer("RunOp %s: Starting", eOp.sIdentifier);
 
 			if (eOp.fnInit != INVALID_FUNCTION) {
@@ -93,6 +91,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 				Call_PushCell(eOp.hSequences);
 				Call_PushCell(eOp.hSubOpRefs);
 				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
+				Call_PushCell(false);
 
 				OpRet iReturn;
 				int iCallError = Call_Finish(iReturn);
@@ -486,6 +485,8 @@ void SetupOperationNatives() {
 	CreateNative("Operation.Instance", 					Native_Operation_Instance);
 	CreateNative("Operation.Destroy", 					Native_Operation_Destroy);
 
+	CreateNative("Operation.Configure",			 		Native_Operation_Configure);
+
 	CreateNative("Operation.AddEventListener", 			Native_Operation_AddEventListener);
 	CreateNative("Operation.RemoveEventListener", 		Native_Operation_RemoveEventListener);
 	CreateNative("Operation.DispatchEvent",		 		Native_Operation_DispatchEvent);
@@ -763,8 +764,6 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 
 	switch (eOp.iOpState) {
 		case OpState_Pend: {
-			eOp.hInitParams.Rewind();
-
 			PrintToServer("RunOp %s: Initializing", eOp.sIdentifier);
 
 			if (eOp.fnInit != INVALID_FUNCTION) {
@@ -775,6 +774,7 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 				Call_PushCell(eOp.hSequences);
 				Call_PushCell(eOp.hSubOpRefs);
 				Call_PushArrayEx(eOp.eOpData, sizeof(_Operation::eOpData), SM_PARAM_COPYBACK);
+				Call_PushCell(false);
 
 				OpRet iReturn;
 				int iCallError = Call_Finish(iReturn);
@@ -1024,7 +1024,6 @@ public any Native_Operation_Clone(Handle hPlugin, int iArgC) {
 	KeyValues hCloneInitParams;
 	Operation mCloneOp = Operation.Instance(sIdentifier, hCloneInitParams);
 
-	hInitParams.Rewind();
 	hCloneInitParams.Import(hInitParams);
 
 	return mCloneOp;
@@ -1032,11 +1031,12 @@ public any Native_Operation_Clone(Handle hPlugin, int iArgC) {
 
 public any Native_Operation__Abort(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
+	if (mOp) {
+		char sBuffer[256];
+		FormatNativeString(0, 2, 3, sizeof(sBuffer), _, sBuffer);
 
-	char sBuffer[256];
-	FormatNativeString(0, 2, 3, sizeof(sBuffer), _, sBuffer);
-
-	mOp.SetError(sBuffer);
+		mOp.SetError(sBuffer);
+	}
 
 	return OpRet_Abort;
 }
@@ -1146,7 +1146,6 @@ public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 			ThrowError("Operation (%s) may only be deregistered from originating plugin: %s", sIdentifier, sPluginName);
 		}
 
-
 		StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
 
 		for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
@@ -1190,7 +1189,7 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		eOp.iUID = m_iUID++;
 
 		if (hInitParams == null) {
-			hInitParams = new KeyValues("InitParams");
+			hInitParams = new KeyValues(OP_INIT_PARAM);
 			SetNativeCellRef(2, hInitParams);
 		} else {
 			eOp.bInitParamsExternal = true;
@@ -1315,6 +1314,42 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 	}
 
 	return 0;
+}
+
+public any Native_Operation_Configure(Handle hPlugin, int iArgC) {
+	char sIdentifier[64];
+	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	KeyValues hInitParams = GetNativeCellRef(2);
+	Bot mBot = GetNativeCell(3);
+
+	hInitParams.DeleteKey(OP_INIT_CONFIG); // Delete any existing config
+
+	_OperationTemplate eOperationTemplate;
+	if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate))) {
+		if (eOperationTemplate.fnInit != INVALID_FUNCTION) {
+			OpData eOpData;
+			Call_StartFunction(eOperationTemplate.hPlugin, eOperationTemplate.fnInit);
+			Call_PushCell(mBot);
+			Call_PushCell(NULL_OPERATION);
+			Call_PushCell(hInitParams);
+			Call_PushCell(0); // null
+			Call_PushCell(0); // null
+			Call_PushArray(eOpData, sizeof(OpData));
+			Call_PushCell(true);
+
+			OpRet iReturn;
+			int iCallError = Call_Finish(iReturn);
+			if (iCallError != SP_ERROR_NONE || iReturn != OpRet_Continue) {
+				hInitParams.DeleteKey(OP_INIT_CONFIG);
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 public any Native_Operation_AddEventListener(Handle hPlugin, int iArgC) {
