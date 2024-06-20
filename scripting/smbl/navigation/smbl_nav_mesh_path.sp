@@ -131,7 +131,9 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 	PathData ePathData;
 
+	NavNode mStartNode = hPathData.Get(0, PathData::mNavNode);
 	NavNode mEndNode;
+
 	float vecEndPos[3];
 	hPathData.GetArray(iEndIdx-1, ePathData);
 	mEndNode = ePathData.mNavNode;
@@ -300,6 +302,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				Call_PushCell(ePathData.iExitAttachmentFlags);
 				Call_PushArray(vecStartVertex, sizeof(vecStartVertex));
 				Call_PushArray(vecOverlapPointA, sizeof(vecOverlapPointA));
+				Call_PushCell(mPrevNode == mStartNode);
+				Call_PushCell(ePathData.mNavNode == mEndNode);
 				Call_PushCell(true);
 				Call_PushCell(aData);
 				Call_PushCell(mEdgeData);
@@ -324,6 +328,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 						Call_PushCell(0);
 						Call_PushArray(vecOverlapPointA, sizeof(vecOverlapPointA));
 						Call_PushArray(vecEndPos, sizeof(vecEndPos));
+						Call_PushCell(ePathData.mNavNode == mStartNode);
+						Call_PushCell(true);
 						Call_PushCell(true);
 						Call_PushCell(aData);
 						Call_PushCell(0);
@@ -377,6 +383,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				Call_PushCell(ePathData.iExitAttachmentFlags);
 				Call_PushArray(vecStartVertex, sizeof(vecStartVertex));
 				Call_PushArray(vecOverlapPointB, sizeof(vecOverlapPointB));
+				Call_PushCell(mPrevNode == mStartNode);
+				Call_PushCell(ePathData.mNavNode == mEndNode);
 				Call_PushCell(true);
 				Call_PushCell(aData);
 				Call_PushCell(mEdgeData);
@@ -401,6 +409,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 						Call_PushCell(0);
 						Call_PushArray(vecOverlapPointB, sizeof(vecOverlapPointB));
 						Call_PushArray(vecEndPos, sizeof(vecEndPos));
+						Call_PushCell(ePathData.mNavNode == mStartNode);
+						Call_PushCell(true);
 						Call_PushCell(true);
 						Call_PushCell(aData);
 						Call_PushCell(0);
@@ -454,6 +464,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				Call_PushCell(0);
 				Call_PushArray(vecStartVertex, sizeof(vecStartVertex));
 				Call_PushArray(vecEndPos, sizeof(vecEndPos));
+				Call_PushCell(ePathData.mNavNode == mStartNode);
+				Call_PushCell(true);
 				Call_PushCell(true);
 				Call_PushCell(aData);
 				Call_PushCell(mEdgeData);
@@ -656,6 +668,8 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 				Call_PushCell(iAttachmentFlags);
 				Call_PushArray(vecFocalPointCurrent, sizeof(vecFocalPointCurrent));
 				Call_PushArray(vecFocalPointNeighbor, sizeof(vecFocalPointNeighbor));
+				Call_PushCell(mCurrentNode == mStartNode);
+				Call_PushCell(mEndNode && mAttachedNode == mEndNode);
 				Call_PushCell(false);
 				Call_PushCell(aData);
 				Call_PushCell(mEdgeData);
@@ -721,7 +735,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 						LocalDataPack.Destroy(mEdgeData);
 
 						mEdgeData = LocalDataPack.Instance();
-						bool bIgnore;
+						bool _bIgnore;
 						Call_StartFunction(hPlugin, fnCostFunc);
 						Call_PushCell(eParentData.mNode);
 						Call_PushCell(i);
@@ -730,11 +744,13 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 						Call_PushCell(eFrontierData.iParentAttachmentFlags);
 						Call_PushArray(eParentData.vecFocalPoint, sizeof(vecFocalPointCurrent));
 						Call_PushArray(vecFocalPointNeighbor, sizeof(vecFocalPointNeighbor));
+						Call_PushCell(mCurrentNode == mStartNode);
+						Call_PushCell(false);
 						Call_PushCell(false);
 						Call_PushCell(aData);
 						Call_PushCell(mEdgeData);
-						Call_PushCellRef(bIgnore);
-						Call_PushCellRef(bIgnore);
+						Call_PushCellRef(_bIgnore);
+						Call_PushCellRef(_bIgnore);
 
 						if (Call_Finish(fCost) != SP_ERROR_NONE || fCost != fCost || fCost == POSITIVE_INFINITY) {
 							LocalDataPack.Destroy(mEdgeData);
@@ -810,6 +826,8 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 					Call_PushCell(0);
 					Call_PushArray(vecFocalPointNeighbor, sizeof(vecFocalPointNeighbor));
 					Call_PushArray(vecEndPos, sizeof(vecEndPos));
+					Call_PushCell(mAttachedNode == mStartNode);
+					Call_PushCell(true);
 					Call_PushCell(true);
 					Call_PushCell(aData);
 					Call_PushCell(0);
