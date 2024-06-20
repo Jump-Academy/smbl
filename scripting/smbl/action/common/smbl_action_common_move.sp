@@ -13,7 +13,6 @@
 #include <smbl/nav_mesh>
 
 #define NODE_PROXIMITY	500.0
-#define NODE_MIN_REACH	50.0
 
 #define PROBE_MIN		{5.0, 5.0, 5.0}
 #define PROBE_MAX		{5.0, 5.0, 5.0}
