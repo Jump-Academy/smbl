@@ -14,7 +14,7 @@ enum struct OpData_AirStrafe {
 	bool bAirBrake;
 	bool bFlyby;
 	bool bDecelerate;
-	float fProximity;
+	float fGoalProximity;
 	float fRemainingAirTime;
 	any aPadding[3];
 }
@@ -24,8 +24,10 @@ enum struct SeqData_AirStrafe {
 	any aPadding[15];
 }
 
-#define DEFAULT_LANDING_PROXIMITY		50.0
-#define AIRBRAKE_SPEED					36.0
+#define DEFAULT_GOAL_PROXIMITY			50.0
+#define AIRBRAKE_SPEED					32.0
+#define AIRBRAKE_DECELERATION			2112.0	// 32u/s additional speed reduction every tick (32/(1/66))
+#define AIRBRAKE_BUFFER					15.0
 
 // Operation callbacks
 
@@ -43,9 +45,9 @@ OpRet AirStrafe_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 
 		eOpData.iAirStrafeMode = AirStrafe_Mode_Destination;
 		vecDest = eOpData.vecDest;
-	} else if (hInitParams.JumpToKey("heading_angle")) {
+	} else if (hInitParams.JumpToKey("heading")) {
 		hInitParams.GoBack();
-		eOpData.fHeadingAng = hInitParams.GetFloat("heading_angle");
+		eOpData.fHeadingAng = hInitParams.GetFloat("heading");
 
 		eOpData.iAirStrafeMode = AirStrafe_Mode_Heading;
 	} else if (hInitParams.JumpToKey("follow")) {
@@ -75,7 +77,7 @@ OpRet AirStrafe_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 	}
 
 	eOpData.bDecelerate = hInitParams.GetNum("decelerate", 0) != 0;
-	eOpData.fProximity = hInitParams.GetFloat("proximity", DEFAULT_LANDING_PROXIMITY);
+	eOpData.fGoalProximity = hInitParams.GetFloat("goal_proximity", DEFAULT_GOAL_PROXIMITY);
 
 	if (eOpData.iAirStrafeMode != AirStrafe_Mode_Heading) {
 		float vecPos[3];
@@ -87,7 +89,7 @@ OpRet AirStrafe_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 		float fAirTime = GetAirTime(iEntity, vecVel[2], vecDest[2]-vecPos[2]);
 
 		float fVel2D = SquareRoot(vecVel[0]*vecVel[0]+vecVel[1]*vecVel[1]);
-		float fDist2D = GetVectorDistance2D(vecPos, vecDest);
+		float fDist2D = GetVectorDistance2D(vecPos, vecDest)-eOpData.fGoalProximity;
 		float fTime2D = fDist2D / fVel2D;
 
 		if (fAirTime <= 0.0 || fAirTime < fTime2D) {
@@ -95,13 +97,9 @@ OpRet AirStrafe_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 		}
 	}
 
- 	SeqData_AirStrafe eSeqData;
- 	eSeqData.fNextDecelerationTime = 0.0;
-
 	Sequence eSeq;
 	eSeq.fnRun = AirStrafe_StraightHeading;
 	eSeq.iSeq = view_as<Seq>(0);
- 	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Straight_Heading");
 	hSequences.PushArray(eSeq);
 
@@ -139,7 +137,10 @@ OpRet AirStrafe_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_A
 			vecDest = eOpData.vecDest;
 		}
 
-		if (GetVectorDistance2D(vecPos, vecDest) > eOpData.fProximity) {
+		if (GetVectorDistance2D(vecPos, vecDest) > eOpData.fGoalProximity) {
+#if defined DEBUG
+			PrintToServer("AIRSTRAFE landed dist=%.1f > landing proximity=%.1f", GetVectorDistance2D(vecPos, vecDest), eOpData.fGoalProximity);
+#endif
 			return mOp._Abort("landed without reaching destination");
 		}
 
@@ -195,6 +196,10 @@ OpRet AirStrafe_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_A
 // Sequences
 
 OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpData, SeqData_AirStrafe eSeqData, float fStartTime) {
+	if (!fStartTime) {
+		mBot.SetPID(PID_FAST_PREC);
+	}
+
 	int iEntity = mBot.iEntity;
 
 	int iButtons = IN_DUCK;
@@ -260,43 +265,78 @@ OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpDat
 		}
 	}
 
+#if defined DEBUG
+	if (eOpData.iAirStrafeMode != AirStrafe_Mode_Heading) {
+		DrawDebugRing(vecDest, eOpData.fGoalProximity, COLOR_GREEN);
+	}
+#endif
+
+	float fDist2D = GetVectorDistance2D(vecPos, vecDest);
+
+	if (fDist2D < eOpData.fGoalProximity && eOpData.bFlyby) {
+		return OpRet_Handled;
+	}
+
 	float fAngDisparity;
 	GetAngDiff(vecAng[1], vecAngTangent[1], fAngDisparity);
 
 	float fAbsAngDisparity = FloatAbs(fAngDisparity);
 
-	if (fAbsAngDisparity >= 90.0) {
-		return mOp._Abort("angle deviation is too large")
+	float fVel2D = SquareRoot(vecVel[0]*vecVel[0] + vecVel[1]*vecVel[1]);
+
+	if (fVel2D > 100.0 && fAbsAngDisparity >= 90.0) {
+		return mOp._Abort("heading deviation")
 	}
 
-	if (fAbsAngDisparity > 5.0) {
-		if (fAngDisparity > 0) {
-			iButtons |= IN_MOVELEFT;
-			vecLocalVel[1] = -400.0;
-		} else {
-			iButtons |= IN_MOVERIGHT;
-			vecLocalVel[1] = 400.0;
+	mBot.SetAimTo(vecAng);
+
+	float fYawError;
+	mBot.GetAimError(_, fYawError);
+
+	// Do not input strafe until facing heading
+	if (fYawError < 45.0) {
+		if (fAbsAngDisparity > 5.0) {
+			if (fAngDisparity > 0) {
+				iButtons |= IN_MOVELEFT;
+				vecLocalVel[1] = -400.0;
+			} else {
+				iButtons |= IN_MOVERIGHT;
+				vecLocalVel[1] = 400.0;
+			}
 		}
 	}
 
-	float fDist2D = GetVectorDistance2D(vecPos, vecDest);
+	if (eOpData.bAirBrake) {
+		float vecDir[3];
+		vecDir[0] = vecDest[0] - vecPos[0];
+		vecDir[1] = vecDest[1] - vecPos[1];
+		NormalizeVector(vecDir, vecDir);
 
-	if (fDist2D < eOpData.fProximity) {
-		if (eOpData.bFlyby) {
-			return OpRet_Handled;
-		}
+		float fVel2DProjected = vecVel[0]*vecDir[0] + vecVel[1]*vecDir[1];
 
-		if (eOpData.bAirBrake) {
+		// vf^2 = v0^2 + 2*a*d
+		// -> d = (vf^2-v0^2)/(2*a) = (0-v0^2)/(2*a) = -v0^2 / (2*a)
+		float fAirBrakeProximity = fVel2DProjected*fVel2DProjected / (2*AIRBRAKE_DECELERATION);
+
+		if (fDist2D-AIRBRAKE_BUFFER <= fAirBrakeProximity) {
+#if defined DEBUG
+			PrintToServer("Airbrake\tvel projected: %.2f, proximity: %.2f, dist: %.2f", fVel2DProjected, fAirBrakeProximity, fDist2D);
+#endif
 			iButtons |= IN_BACK;
 			vecLocalVel[0] = -400.0;
+// 			PrintToServer("AIRBRAKE!!!");
 
 #if defined DEBUG
 			DrawDebugMarker(vecDest, COLOR_RED, 0.1);
 #endif
 		}
-	} else if (eOpData.bDecelerate && GetGameTime() >= eSeqData.fNextDecelerationTime) {
-		float fVel2D = SquareRoot(vecVel[0]*vecVel[0]+vecVel[1]*vecVel[1]);
-		float fTime2D = fDist2D / fVel2D;
+
+#if defined DEBUG
+		DrawDebugRing(vecDest, fAirBrakeProximity, COLOR_RED);
+#endif
+	}
+
+	if (fAbsAngDisparity < 5.0 && eOpData.bDecelerate && GetGameTime() >= eSeqData.fNextDecelerationTime) {
 
 		if (eSeqData.fNextDecelerationTime) {
 			iButtons |= IN_BACK;
@@ -308,6 +348,11 @@ OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpDat
 		}
 
 		if (fDist2D/(fVel2D-AIRBRAKE_SPEED) <= eOpData.fRemainingAirTime) {
+#if defined DEBUG
+			PrintToServer("Decelerate\tReduced air time: %.3f, remaining: %.3f", fDist2D/(fVel2D-AIRBRAKE_SPEED), eOpData.fRemainingAirTime);
+#endif
+
+			float fTime2D = fDist2D / fVel2D;
 			float fDecelerationInterval = 0.025*fTime2D;
 			eSeqData.fNextDecelerationTime = GetGameTime() + fDecelerationInterval;
 
@@ -319,9 +364,6 @@ OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpDat
 	else
 		DrawDebugMarker(vecDest, COLOR_GREEN, 0.1);
 #endif
-
-	mBot.SetAimTo(vecAng);
-	mBot.SetPID(PID_SLOW_LAZY);
 
 	mBot.SetLocalVelocity(vecLocalVel);
 	mBot.iButtons = iButtons;

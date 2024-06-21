@@ -20,6 +20,7 @@
 #define PID_DEFAULT		{0.20,	0.001,	0.65}
 #define PID_SLOW_LAZY	{0.05,	0.001,	0.01}
 #define PID_FAST		{0.10,	0.001,	0.01}
+#define PID_FAST_PREC	{0.10,	0.000,	0.00}
 #define PID_SNAP		{1.00,	0.000,	0.00}
 
 #define COLOR_WHITE		{255, 255, 255, 255}
@@ -112,10 +113,15 @@ void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife
 	TE_SendToAll();
 }
 
-void DrawDebugMarker(float vecPos[3], int iColor[4], float fLife) {
+void DrawDebugMarker(float vecPos[3], int iColor[4], float fLife=0.1) {
 	float vecMarker[3];
 	vecMarker = vecPos;
 	vecMarker[2] += 100.0;
 	DrawDebugLine(vecPos, vecMarker, iColor, fLife);
+}
+
+void DrawDebugRing(float vecPos[3], float fRadius, int iColor[4], float fLife=0.1) {
+	TE_SetupBeamRingPoint(vecPos, fRadius-5.0, fRadius, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 0.0, iColor, 0, 0);
+	TE_SendToAll();
 }
 #endif
