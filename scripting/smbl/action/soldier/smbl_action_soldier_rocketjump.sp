@@ -121,8 +121,8 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	float fFollowZOffset;
 
 	if (hInitParams.JumpToKey("follow")) {
+		iFollowEntity = hInitParams.GetNum(NULL_STRING);
 		hInitParams.GoBack();
-		iFollowEntity = hInitParams.GetNum("follow");
 		fFollowDistance = hInitParams.GetFloat("follow_distance", 0.0);
 		fFollowZOffset = hInitParams.GetFloat("follow_zoffset", 0.0);
 
@@ -131,24 +131,22 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		}
 	}
 
-	if (!iFollowEntity && !hInitParams.JumpToKey("destination")) {
-		return mOp._Abort("missing destination init parameter");
-	}
-
 	float vecDest[3];
 
-	if (iFollowEntity) {
-		Entity_GetAbsOrigin(iFollowEntity, vecDest);
+	if (!hInitParams.JumpToKey("destination")) {
+		if (!iFollowEntity) {
+			return mOp._Abort("missing destination init parameter");
+		}
 	} else {
+		hInitParams.GetVector(NULL_STRING, vecDest);
 		hInitParams.GoBack();
-		hInitParams.GetVector("destination", vecDest);
 	}
 
 	float vecOrigin[3];
 
 	if (hInitParams.JumpToKey("origin")) {
+		hInitParams.GetVector(NULL_STRING, vecOrigin);
 		hInitParams.GoBack();
-		hInitParams.GetVector("origin", vecOrigin);
 	} else {
 		float vecVel[3];
 		Entity_GetAbsVelocity(iEntity, vecVel);
@@ -191,7 +189,9 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	bool bConfigured = !bConfigureOnly && hInitParams.JumpToKey(OP_INIT_CONFIG);
 	if (bConfigured) {
 		char sIdentifier[64];
-		if (!hInitParams.GetString("rocketjump_identifier", sIdentifier, sizeof(sIdentifier))) {
+		hInitParams.GetString("rocketjump_identifier", sIdentifier, sizeof(sIdentifier));
+
+		if (!sIdentifier[0]) {
 			hInitParams.GoBack(); // from OP_INIT_CONFIG
 			return mOp._Abort("missing rocketjump_identifier config parameter");
 		}
