@@ -5,6 +5,7 @@
 
 enum struct _NavPath {
 	ArrayList hPathData;
+	NavMesh mNavMesh;
 	float fCost;
 	bool bGCFlag;
 }
@@ -63,6 +64,7 @@ ArrayList g_hNavPaths;
 void SetupPathNatives() {
 	g_hNavPaths = new ArrayList(sizeof(_NavPath));
 
+	CreateNative("NavPath.mNavMesh.get",					Native_NavPath_GetNavMesh);
 	CreateNative("NavPath.iLength.get",						Native_NavPath_GetLength);
 	CreateNative("NavPath.fCost.get",						Native_NavPath_GetCost);
 	CreateNative("NavPath.Get",								Native_NavPath_Get);
@@ -73,6 +75,11 @@ void SetupPathNatives() {
 }
 
 //  Natives
+
+public any Native_NavPath_GetNavMesh(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	return g_hNavPaths.Get(iThis, _NavPath::mNavMesh);
+}
 
 public int Native_NavPath_GetLength(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
@@ -132,6 +139,8 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 	if (iEndIdx-iStartIdx < 3) {
 		return 0;
 	}
+
+	NavMesh mNavMesh = g_hNavPaths.Get(iThis, _NavPath::mNavMesh);
 
 	float fTimestamp = GetEngineTime();
 
@@ -301,6 +310,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
+				Call_PushCell(mNavMesh);
 				Call_PushCell(mPrevNode);
 				Call_PushCell(iPrevEdge);
 				Call_PushCell(ePathData.mNavNode);
@@ -327,6 +337,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 						_bIgnore = false;
 						Call_StartFunction(hPlugin, fnCostFunc);
+						Call_PushCell(mNavMesh);
 						Call_PushCell(ePathData.mNavNode);
 						Call_PushCell(-1);
 						Call_PushCell(mEndNode);
@@ -382,6 +393,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
+				Call_PushCell(mNavMesh);
 				Call_PushCell(mPrevNode);
 				Call_PushCell(iPrevEdge);
 				Call_PushCell(ePathData.mNavNode);
@@ -408,6 +420,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 
 						_bIgnore = false;
 						Call_StartFunction(hPlugin, fnCostFunc);
+						Call_PushCell(mNavMesh);
 						Call_PushCell(ePathData.mNavNode);
 						Call_PushCell(-1);
 						Call_PushCell(mEndNode);
@@ -463,6 +476,7 @@ public any Native_NavPath_Optimize(Handle hPlugin, int iArgC) {
 				LocalDataPack mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 				bool _bIgnore;
 				Call_StartFunction(hPlugin, fnCostFunc);
+				Call_PushCell(mNavMesh);
 				Call_PushCell(ePathData.mNavNode);
 				Call_PushCell(-1);
 				Call_PushCell(mEndNode);
@@ -562,25 +576,27 @@ public any Native_NavPath_Destroy(Handle hPlugin, int iArgC) {
 public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 	float fTimestamp = GetEngineTime();
 
-	NavNode mStartNode = GetNativeCell(1);
-	NavNode mEndNode = GetNativeCell(2);
+	NavMesh mNavMesh = GetNativeCell(1);
+
+	NavNode mStartNode = GetNativeCell(2);
+	NavNode mEndNode = GetNativeCell(3);
 
 	if (!mStartNode) {
 		return NULL_NAV_PATH;
 	}
 
-	Function fnCostFunc = GetNativeFunction(3);
-	Function fnCleanup = GetNativeFunction(4);
+	Function fnCostFunc = GetNativeFunction(4);
+	Function fnCleanup = GetNativeFunction(5);
 
 	Handle hCleanupPlugin;
 	if (fnCleanup != INVALID_FUNCTION) {
 		hCleanupPlugin = hPlugin;
 	}
 
-	any aData = GetNativeCell(5);
+	any aData = GetNativeCell(6);
 
 	float vecStartPos[3];
-	GetNativeArray(6, vecStartPos, sizeof(vecStartPos));
+	GetNativeArray(7, vecStartPos, sizeof(vecStartPos));
 
 	bool bCustomStartPos = vecStartPos[0] == vecStartPos[0] && vecStartPos[1] == vecStartPos[1] && vecStartPos[2] == vecStartPos[2];
 	if (!bCustomStartPos) {
@@ -591,7 +607,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 	}
 
 	float vecEndPos[3];
-	GetNativeArray(7, vecEndPos, sizeof(vecEndPos));
+	GetNativeArray(8, vecEndPos, sizeof(vecEndPos));
 
 	if (mEndNode) {
 		bool bCustomEndPos = vecEndPos[0] == vecEndPos[0] && vecEndPos[1] == vecEndPos[1] && vecEndPos[2] == vecEndPos[2];
@@ -641,7 +657,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 
 			PrintToServer("Main search completed with end node in %.3f ms", 1000*(GetEngineTime()-fTimestamp));
 
-			return CreateNavPath(hPathData, fTotalCost);
+			return CreateNavPath(hPathData, mNavMesh, fTotalCost);
 		}
 
 		hFrontier.Erase(0);
@@ -673,6 +689,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 				bool bMarkGoalNode;
 				bool bMarkGoalEdge;
 				Call_StartFunction(hPlugin, fnCostFunc);
+				Call_PushCell(mNavMesh);
 				Call_PushCell(mCurrentNode);
 				Call_PushCell(i);
 				Call_PushCell(mAttachedNode);
@@ -733,7 +750,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 
 					PrintToServer("Main search stopped with goal node in %.3f ms", 1000*(GetEngineTime()-fTimestamp));
 
-					return CreateNavPath(hPathData, fTotalCost);
+					return CreateNavPath(hPathData, mNavMesh, fTotalCost);
 				}
 
 				if (!mEndNode && bMarkGoalEdge) {
@@ -749,6 +766,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 						mEdgeData = LocalDataPack.Instance(fnCleanup, hCleanupPlugin);
 						bool _bIgnore;
 						Call_StartFunction(hPlugin, fnCostFunc);
+						Call_PushCell(mNavMesh);
 						Call_PushCell(eParentData.mNode);
 						Call_PushCell(i);
 						Call_PushCell(mCurrentNode);
@@ -793,7 +811,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 						ArrayList hPathData = BuildPathData(hFrontierDataMap, eNewFrontierData, false, true);
 
 						NavPath.Destroy(mGoalEdgeNavPath);
-						mGoalEdgeNavPath = CreateNavPath(hPathData, fTotalCost);
+						mGoalEdgeNavPath = CreateNavPath(hPathData, mNavMesh, fTotalCost);
 					} else {
 						LocalDataPack.Destroy(mEdgeData);
 					}
@@ -831,6 +849,7 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 					bMarkGoalNode = false;
 					bMarkGoalEdge = false;
 					Call_StartFunction(hPlugin, fnCostFunc);
+					Call_PushCell(mNavMesh);
 					Call_PushCell(mAttachedNode);
 					Call_PushCell(-1);
 					Call_PushCell(mEndNode);
@@ -940,9 +959,10 @@ int Sort_VertexHorizon_FScore(int iIdxA, int iIdxB, Handle hArray, Handle hHndl)
 
 // Helpers
 
-NavPath CreateNavPath(ArrayList hPathData, float fCost) {
+NavPath CreateNavPath(ArrayList hPathData, NavMesh mNavMesh, float fCost) {
 	_NavPath eNavPath;
 	eNavPath.hPathData = hPathData;
+	eNavPath.mNavMesh = mNavMesh;
 	eNavPath.fCost = fCost;
 
 	int iFreeIdx = g_hNavPaths.FindValue(true, _NavPath::bGCFlag);
@@ -1035,21 +1055,6 @@ ArrayList BuildPathData(StringMap hFrontierDataMap, FrontierData eFrontierData, 
 	}
 
 	return hPathResult;
-}
-
-/**
- * PackCellToStr
- * Credit: Asher 'Asherkin' Baker
- * Packs a key, as an integer, into a null-terminated buffer.
- */
-void PackCellToStr(any aKey, char[] sBuffer) {
-	int i = aKey;
-	sBuffer[0] = ((i >> 28) & 0x7F) | 0x80;
-	sBuffer[1] = ((i >> 21) & 0x7F) | 0x80;
-	sBuffer[2] = ((i >> 14) & 0x7F) | 0x80;
-	sBuffer[3] = ((i >>  7) & 0x7F) | 0x80;
-	sBuffer[4] = ((i      ) & 0x7F) | 0x80;
-	sBuffer[5] = 0;
 }
 
 // Adapted from https://www.geeksforgeeks.org/orientation-3-ordered-points/

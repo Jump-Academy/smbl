@@ -71,7 +71,7 @@ public void OnMapStart() {
 
 // Custom callbacks
 
-public float CostFunc_WalkDrop(NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic) {
+public float CostFunc_WalkDrop(NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic) {
 	if (iAttachmentFlags & (FL_ATTACH_GROUND | FL_ATTACH_DROP) || bHeuristic) {
 		return GetVectorDistance(vecPosA, vecPosB);
 	}

@@ -1830,3 +1830,18 @@ void BuildSpatialIdx(int iNavMeshIdx) {
 
 	PrintToServer("[SMBL] Built nav %d spatial index in %.3f ms", iNavMeshIdx, 1000*(GetEngineTime()-fTimestamp));
 }
+
+/**
+ * PackCellToStr
+ * Credit: Asher 'Asherkin' Baker
+ * Packs a key, as an integer, into a null-terminated buffer.
+ */
+void PackCellToStr(any aKey, char[] sBuffer) {
+	int i = aKey;
+	sBuffer[0] = ((i >> 28) & 0x7F) | 0x80;
+	sBuffer[1] = ((i >> 21) & 0x7F) | 0x80;
+	sBuffer[2] = ((i >> 14) & 0x7F) | 0x80;
+	sBuffer[3] = ((i >>  7) & 0x7F) | 0x80;
+	sBuffer[4] = ((i      ) & 0x7F) | 0x80;
+	sBuffer[5] = 0;
+}

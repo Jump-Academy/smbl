@@ -179,6 +179,10 @@ enum PathMode {
 }
 
 methodmap NavPath {
+	property NavMesh mNavMesh {
+		public native get();
+	}
+
 	property int iLength {
 		public native get();
 	}
@@ -198,6 +202,7 @@ methodmap Navigation {
 	 * Finds the shortest path from a start node to a goal using A* graph traversal
 	 * If end node is not specified as the goal, this will run breadth-first search (no heuristic) unless the cost function marks a goal.
 	 *
+	 * @param mNavMesh			Navigation mesh to be searched
 	 * @param mStartNode		Node to start the search from
 	 * @param mEndNode			Node to end search (or NULL_NAV_NODE for run BFS)
 	 * @param fnCostFunction	Cost function for the graph
@@ -207,7 +212,7 @@ methodmap Navigation {
 	 * @param vecEndPos			Optional position within end node
 	 * @return					Navigation path (or NULL_NAV_PATH if goal is unreachable), must be destroyed with NavPath.Destroy().
 	 **/
-	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
+	public static native NavPath FindShortestPath(NavMesh mNavMesh, NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
 }
 
 /**
@@ -217,6 +222,7 @@ typeset CostFunc {
 	/**
 	 * Called to calculate the cost or heuristic between two nodes
 	 *
+	 * @param mNavMesh			Navigation mesh being searched
 	 * @param mNodeA			Source node
 	 * @param iEdgeA			Exit edge from source node
 	 * @param mNodeB			Destination node
@@ -232,9 +238,9 @@ typeset CostFunc {
 	 * @param bMarkGoalNode		Marks destination node as a goal node to terminate the search
 	 * @param bMarkGoalEdge		Marks source node exit edge as a candidate goal edge (search ends with the last node as the source node with a focal point on the edge goal, if the path from the search start node to this goal edge has the lowest cost of all paths leading to goal edge candidates)
 	 */
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
 }
 
 native bool SMBL_RegisterNavMesh(char[] sIdentifier, NavMesh mNavMesh);
