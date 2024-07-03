@@ -1321,7 +1321,6 @@ public any Native_Operation_Configure(Handle hPlugin, int iArgC) {
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
 	KeyValues hInitParams = GetNativeCellRef(2);
-	Bot mBot = GetNativeCell(3);
 
 	hInitParams.DeleteKey(OP_INIT_CONFIG); // Delete any existing config
 
@@ -1330,7 +1329,7 @@ public any Native_Operation_Configure(Handle hPlugin, int iArgC) {
 		if (eOperationTemplate.fnInit != INVALID_FUNCTION) {
 			OpData eOpData;
 			Call_StartFunction(eOperationTemplate.hPlugin, eOperationTemplate.fnInit);
-			Call_PushCell(mBot);
+			Call_PushCell(NULL_BOT);
 			Call_PushCell(NULL_OPERATION);
 			Call_PushCell(hInitParams);
 			Call_PushCell(0); // null
