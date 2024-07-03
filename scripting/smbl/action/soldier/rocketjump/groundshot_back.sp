@@ -15,17 +15,23 @@ enum struct SeqData_Groundshot_Back_PrepareRocketLauncher {
 // Operation callbacks
 
 OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Groundshot_Back eOpData, bool bConfigureOnly) {
-	int iEntity = mBot.iEntity;
+	int iEntity;
 
-	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
-		return mOp._Abort("unsupported TFClassType");
+	if (!bConfigureOnly) {
+		iEntity = mBot.iEntity;
+
+		if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
+			return mOp._Abort("unsupported TFClassType");
+		}
 	}
 
 	if (hInitParams.JumpToKey("origin")) {
 		hInitParams.GetVector(NULL_STRING, eOpData.vecStart);
 		hInitParams.GoBack();
+	} else if (bConfigureOnly) {
+		return mOp._Abort("missing origin init parameter");
 	} else {
-		Entity_GetAbsOrigin(mBot.iEntity, eOpData.vecStart);
+		Entity_GetAbsOrigin(iEntity, eOpData.vecStart);
 	}
 
 	if (!hInitParams.JumpToKey("destination")) {
@@ -78,7 +84,7 @@ OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 		hInitParams.GoBack(); // from OP_INIT_CONFIG
 	} else {
-		if (FindParameters(iEntity, eOpData.vecStart, eOpData.vecDest, fPitchAng, fYawAng, fHeadingAng, bStandingLaunch) == -1) {
+		if (FindParameters(eOpData.vecStart, eOpData.vecDest, fPitchAng, fYawAng, fHeadingAng, bStandingLaunch) == -1) {
 			return mOp._Abort("destination not reachable");
 		}
 
@@ -303,7 +309,7 @@ static float GetYawAngleCompensation(float fPitchAng) {
 		-141.3442763196645;
 }
 
-static int FindParameters(int iEntity, float vecOrigin[3], float vecDest[3], float &fPitchAng, float &fYawAng, float &fHeadingAng, bool &bStandingLaunch) {
+static int FindParameters(float vecOrigin[3], float vecDest[3], float &fPitchAng, float &fYawAng, float &fHeadingAng, bool &bStandingLaunch) {
 	float vecDiff[3];
 	SubtractVectors(vecDest, vecOrigin, vecDiff);
 
@@ -351,22 +357,18 @@ static int FindParameters(int iEntity, float vecOrigin[3], float vecDest[3], flo
 		}
 	}
 
-	float fEntityGravityRatio = GetEntityGravity(iEntity);
-	if (fEntityGravityRatio == 0.0) {
-		fEntityGravityRatio = 1.0;
-	}
+	float fGravity = -g_hCVGravity.FloatValue
 
-	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
-
-	float vecMins[3], vecMaxs[3];
-	Entity_GetMinSize(iEntity, vecMins);
-	Entity_GetMaxSize(iEntity, vecMaxs);
+	float vecMins[3] = SOLDIER_MIN_BBOX;
+	float vecMaxs[3] = SOLDIER_MAX_BBOX;
 
 	float vecTraceStartPos[3];
 	vecTraceStartPos = vecOrigin;
 	vecTraceStartPos[2] += 0.75*vecMaxs[2];
 
+#if defined DEBUG
 	float fTimestamp = GetEngineTime();
+#endif
 
 	float fBestPitchAng;
 	float fBestVel2D;

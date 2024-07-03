@@ -35,6 +35,9 @@
 #define CLOSE_RANGE_CUTOFF		300.0
 #define MIN_START_SPEED			239.0
 
+#define SOLDIER_MIN_BBOX	{-24.0, -24.0, 0.0}
+#define SOLDIER_MAX_BBOX	{24.0, 24.0, 82.0}
+
 // Approximates
 #define WALK_TIME				0.1350
 #define LAUNCHER_AIM_TIME		0.0045
@@ -110,10 +113,14 @@ void Setup_RocketJump() {
 // Operation callbacks
 
 OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_RocketJump eOpData, bool bConfigureOnly) {
-	int iEntity = mBot.iEntity;
+	int iEntity;
 
-	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
-		return mOp._Abort("unsupported TFClassType");
+	if (!bConfigureOnly) {
+		iEntity = mBot.iEntity;
+
+		if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
+			return mOp._Abort("unsupported TFClassType");
+		}
 	}
 
 	int iFollowEntity;
@@ -147,6 +154,8 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	if (hInitParams.JumpToKey("origin")) {
 		hInitParams.GetVector(NULL_STRING, vecOrigin);
 		hInitParams.GoBack();
+	} else if (bConfigureOnly) {
+		return mOp._Abort("missing origin init parameter");
 	} else {
 		float vecVel[3];
 		Entity_GetAbsVelocity(iEntity, vecVel);
@@ -254,8 +263,8 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 
 		RocketJumpType iRocketJumpType;
 
-		if (!Operation.Configure(g_sRocketJumpIdentifiers[iPriortyRocketJumpType], hGroundShotInitParams, mBot)) {
-			if (!Operation.Configure(g_sRocketJumpIdentifiers[iBackupRocketJumpType], hGroundShotInitParams, mBot)) {
+		if (!Operation.Configure(g_sRocketJumpIdentifiers[iPriortyRocketJumpType], hGroundShotInitParams)) {
+			if (!Operation.Configure(g_sRocketJumpIdentifiers[iBackupRocketJumpType], hGroundShotInitParams)) {
 				delete hGroundShotInitParams;
 				return mOp._Abort("destination not reachable");
 			}

@@ -38,10 +38,14 @@ static float g_fGroundShotParams[][] = {
 // Operation callbacks
 
 OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Groundshot_Down eOpData, bool bConfigureOnly) {
-	int iEntity = mBot.iEntity;
+	int iEntity;
 
-	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
-		return mOp._Abort("unsupported TFClassType");
+	if (!bConfigureOnly) {
+		iEntity = mBot.iEntity;
+
+		if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
+			return mOp._Abort("unsupported TFClassType");
+		}
 	}
 
 	float vecOrigin[3];
@@ -49,8 +53,10 @@ OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 	if (hInitParams.JumpToKey("origin")) {
 		hInitParams.GoBack();
 		hInitParams.GetVector("origin", vecOrigin);
+	} else if (bConfigureOnly) {
+		return mOp._Abort("missing origin init parameter");
 	} else {
-		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
+		Entity_GetAbsOrigin(iEntity, vecOrigin);
 	}
 
 	if (!hInitParams.JumpToKey("destination")) {
@@ -98,7 +104,7 @@ OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 		hInitParams.GoBack(); // from OP_INIT_CONFIG
 	} else {
-		switch (FindParameters(iEntity, vecOrigin, vecDest, fStartSpeed, fShotDelay, fHeadingAng)) {
+		switch (FindParameters(vecOrigin, vecDest, fStartSpeed, fShotDelay, fHeadingAng)) {
 			case -1: {
 				hInitParams.GoBack(); // from OP_INIT_CONFIG
 				return mOp._Abort("destination not reachable")
@@ -248,7 +254,7 @@ OpRet GroundShot_Down_Face_Heading(Bot mBot, Operation mOp, OpData_Groundshot_Do
 
 // Helpers
 
-static int FindParameters(int iEntity, float vecOrigin[3], float vecDest[3], float &fMinSpeed, float &fDelay, float &fHeadingAng) {
+static int FindParameters(float vecOrigin[3], float vecDest[3], float &fMinSpeed, float &fDelay, float &fHeadingAng) {
 	float vecDiff[3];
 	SubtractVectors(vecDest, vecOrigin, vecDiff);
 
@@ -275,21 +281,15 @@ static int FindParameters(int iEntity, float vecOrigin[3], float vecDest[3], flo
 		}
 	}
 
-	float fEntityGravityRatio = GetEntityGravity(iEntity);
-	if (fEntityGravityRatio == 0.0) {
-		fEntityGravityRatio = 1.0;
-	}
-
-	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
+	float fGravity = -g_hCVGravity.FloatValue;
 
 	float vecDir[3];
 	vecDir[0] = vecDiff[0];
 	vecDir[1] = vecDiff[1];
 	NormalizeVector(vecDir, vecDir);
 
-	float vecMins[3], vecMaxs[3];
-	Entity_GetMinSize(iEntity, vecMins);
-	Entity_GetMaxSize(iEntity, vecMaxs);
+	float vecMins[3] = SOLDIER_MIN_BBOX;
+	float vecMaxs[3] = SOLDIER_MAX_BBOX;
 
 	float vecTraceStartPos[3];
 	vecTraceStartPos[0] = vecOrigin[0];
