@@ -148,6 +148,29 @@ methodmap Operation {
 	*/
 	public native OpRet Init(Bot mBot, bool bSilentFail=false);
 
+	/**
+	 * Runs an initialized operation on a timer until completion or abort.
+	 * Use Operation.Init() to pre-initialize before running.
+	 * The operation can be terminated early by manually calling Operation.Abort().
+	 *
+	 * @param fInterval Interval from the current game time to run the operation or the delay between timer loops.
+	 * @param Timer flags to set (TIMER_REPEAT and TIMER_FLAG_NO_MAPCHANGE only).
+	 * @param bDestroy Destroy the operation when completed or aborted
+	 * @error Operation is not initialized or cannot be run, or the operation is already running on a timer.
+	 */
+	public native void Run(float fInterval, int iTimerFlags=0, bool bDestroy=true);
+
+	/**
+	 * Runs an initialized operation operation for a single cycle.
+	 * Use Operation.Init() to pre-initialize before running.
+	 *
+	 * @param bDestroy Destroy the operation when completed or aborted
+	 * @return Returns OpRet_Continue if the operation ran successfully but is not yet complete,
+	 * 			OpRet_Handled if it completed successfully, and OpRet_Abort if the operation aborted (such as due to error).
+	 * @error Operation is not initialized or cannot be run.
+	 */
+	public native OpRet RunOnce(bool bDestroy=true);
+
 	public native bool Interrupt();
 	public native bool Resume();
 
