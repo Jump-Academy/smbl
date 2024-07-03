@@ -605,6 +605,9 @@ enum struct _NavMesh {
 	ArrayList hNavNodes;
 	ArrayList hVertexNodes;
 	Octree mOctree;
+	char sFileName[PLATFORM_MAX_PATH];
+	char sMapName[PLATFORM_MAX_PATH];
+	int iTimestamp;
 	bool bGCFlag;
 }
 
@@ -717,6 +720,12 @@ void SetupNavNatives() {
 	CreateNative("NavNode.Instance", 					Native_NavNode_Instance);
 	CreateNative("NavNode.Destroy", 					Native_NavNode_Destroy);
 
+	CreateNative("NavMesh.iTimestamp.get", 				Native_NavMesh_GetTimestamp);
+	CreateNative("NavMesh.iTimestamp.set", 				Native_NavMesh_SetTimestamp);
+	CreateNative("NavMesh.GetFileName", 				Native_NavMesh_GetFileName);
+	CreateNative("NavMesh.SetFileName", 				Native_NavMesh_SetFileName);
+	CreateNative("NavMesh.GetMapName", 					Native_NavMesh_GetMapName);
+	CreateNative("NavMesh.SetMapName", 					Native_NavMesh_SetMapName);
 	CreateNative("NavMesh.GetNodes",	 				Native_NavMesh_GetNodes);
 	CreateNative("NavMesh.GetNodesInRange",				Native_NavMesh_GetNodesInRange);
 	CreateNative("NavMesh.GetNearestNodeInRange",		Native_NavMesh_GetNearestNodeInRange);
@@ -1193,6 +1202,70 @@ public any Native_NavNode_Destroy(Handle hPlugin, int iArgC) {
 
 // Navigation mesh natives
 
+public int Native_NavMesh_GetTimestamp(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+	return g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::iTimestamp);
+}
+
+public any Native_NavMesh_SetTimestamp(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+	int iTimestamp = GetNativeCell(2);
+
+	g_hNavMeshes.Set(iNavMeshIdx, iTimestamp, _NavMesh::iTimestamp);
+
+	return 0;
+}
+
+public any Native_NavMesh_GetFileName(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+	int iMaxLength = GetNativeCell(3);
+
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	SetNativeString(2, eNavMesh.sFileName, iMaxLength);
+
+	return 0;
+}
+
+public any Native_NavMesh_SetFileName(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	GetNativeString(2, eNavMesh.sFileName, sizeof(_NavMesh::sFileName));
+
+	g_hNavMeshes.SetArray(iNavMeshIdx, eNavMesh);
+
+	return 0;
+}
+
+public any Native_NavMesh_GetMapName(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+	int iMaxLength = GetNativeCell(3);
+
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	SetNativeString(2, eNavMesh.sMapName, iMaxLength);
+
+	return 0;
+}
+
+public any Native_NavMesh_SetMapName(Handle hPlugin, int iArgC) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	GetNativeString(2, eNavMesh.sMapName, sizeof(_NavMesh::sMapName));
+
+	g_hNavMeshes.SetArray(iNavMeshIdx, eNavMesh);
+
+	return 0;
+}
+
 public any Native_NavMesh_GetNodes(Handle hPlugin, int iArgC) {
 	int iNavMeshIdx = GetNativeCell(1)-1;
 
@@ -1396,7 +1469,22 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 		return NULL_NAV_MESH;
 	}
 
+	char sFileName[PLATFORM_MAX_PATH];
+	int iPathFileSplit = FindCharInString(sFilePath, '/', true);
+	if (iPathFileSplit == -1) {
+		sFileName = sFilePath;
+	} else {
+		strcopy(sFileName, sizeof(sFileName), sFilePath[iPathFileSplit+1]);
+	}
+
 	NavMesh mNavMesh = NavMesh.Instance();
+	mNavMesh.SetFileName(sFileName);
+
+	hFile.Seek(0xA, SEEK_SET);
+
+	int iTimestamp;
+	hFile.ReadInt32(iTimestamp);
+	mNavMesh.iTimestamp = iTimestamp;
 
 	hFile.Seek(0xE, SEEK_SET);
 
@@ -1408,6 +1496,8 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	if (!StrEqual(sMapName, sFileMapName, false)) {
 		PrintToServer("[SMBL] Warning: Map mismatch (%s): %s", sFileMapName, sFilePath);
 	}
+
+	mNavMesh.SetMapName(sFileMapName);
 
 	hFile.Seek(0x2E, SEEK_SET);
 	int iMetaPosNodeData;

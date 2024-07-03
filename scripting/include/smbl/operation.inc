@@ -138,15 +138,38 @@ methodmap Operation {
 	public native bool RemoveAbortForward(OpAbortFwd fnForward);
 
 	/**
-	 * Pre-initialize the Operation
+	 * Pre-initializes the Operation.
 	 *
 	 * Use Operation.Configure() to check if runnable to avoid unnecessary instantiation
 	 *
-	 * @param mBot			Bot to bind this Operation to
+	 * @param mBot			Bot to bind this Operation to.
 	 * @param bSilentFail	If set to true, failed initializations do not return an error or mark the Operation as aborted
-	 * @return Returns OpRet_Abort if the Operation failed to initialize, OpRet_Continue otherwise
+	 * @return Returns OpRet_Abort if the Operation failed to initialize, OpRet_Continue otherwise.
 	*/
 	public native OpRet Init(Bot mBot, bool bSilentFail=false);
+
+	/**
+	 * Runs an initialized operation on a timer until completion or abort.
+	 * Use Operation.Init() to pre-initialize before running.
+	 * The operation can be terminated early by manually calling Operation.Abort().
+	 *
+	 * @param fInterval Interval from the current game time to run the operation or the delay between timer loops.
+	 * @param Timer flags to set (TIMER_REPEAT and TIMER_FLAG_NO_MAPCHANGE only).
+	 * @param bDestroy Destroy the operation when completed or aborted
+	 * @error Operation is not initialized or cannot be run, or the operation is already running on a timer.
+	 */
+	public native void Run(float fInterval, int iTimerFlags=0, bool bDestroy=true);
+
+	/**
+	 * Runs an initialized operation operation for a single cycle.
+	 * Use Operation.Init() to pre-initialize before running.
+	 *
+	 * @param bDestroy Destroy the operation when completed or aborted
+	 * @return Returns OpRet_Continue if the operation ran successfully but is not yet complete,
+	 * 			OpRet_Handled if it completed successfully, and OpRet_Abort if the operation aborted (such as due to error).
+	 * @error Operation is not initialized or cannot be run.
+	 */
+	public native OpRet RunOnce(bool bDestroy=true);
 
 	public native bool Interrupt();
 	public native bool Resume();
@@ -156,7 +179,7 @@ methodmap Operation {
 
 	/**
 	 * Creates an independent and uninitialized copy of an Operation
-	 * with the same initialization parameters
+	 * with the same initialization parameters.
 	 *
 	 * @return New Operation
 	**/
@@ -174,7 +197,7 @@ methodmap Operation {
 	public static native void Destroy(Operation &mOp);
 
 	/**
-	 * Configures initialization parameters from an Operation template
+	 * Configures initialization parameters from an Operation template.
 	 *
 	 * Use this to prepare configuration parameters for an Operation without instantiating one first.
 	 * This calls the initialization callback like Operation.Init but with bConfigureOnly set to true
@@ -184,10 +207,9 @@ methodmap Operation {
 	 *
 	 * @param sIdentifier	Identifier for the Operation template
 	 * @param hInitParams	Parameters to initialize the Operation and write the OP_INIT_CONFIG configuration subtree
-	 * @param mBot			Bot to configure this Operation on
 	 * @return Returns true if the initialization callback returns OpRet_Continue and false otherwise
 	 */
-	public static native bool Configure(char[] sIdentifier, KeyValues &hInitParams, Bot mBot);
+	public static native bool Configure(char[] sIdentifier, KeyValues &hInitParams);
 
 	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
 	public static native bool RemoveEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);

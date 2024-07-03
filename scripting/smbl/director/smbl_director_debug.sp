@@ -752,7 +752,7 @@ int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer,
 	char sBufferParams[128];
 
 	if (bFirst) {
-		hInitParams.JumpToKey("InitParams");
+		hInitParams.JumpToKey(OP_INIT_PARAM);
 		if (hInitParams.GotoFirstSubKey(false)) {
 			do {
 				char sComma[3];
@@ -779,9 +779,7 @@ int PrintCallChain(Operation mOperation, bool bConcurrentParent, char[] sBuffer,
 							&& String_IsNumeric(sFloatBuffers[0]) \
 							&& String_IsNumeric(sFloatBuffers[1]) \
 							&& String_IsNumeric(sFloatBuffers[2])) {
-							float vecValue[3];
-							hInitParams.GetVector(NULL_STRING, vecValue);
-							Format(sBufferParams, sizeof(sBufferParams), "%s%s%s=[%.0f, %.0f, %.0f]", sBufferParams, sComma, sKey, vecValue[0], vecValue[1], vecValue[2]);
+							Format(sBufferParams, sizeof(sBufferParams), "%s%s%s", sBufferParams, sComma, sKey);
 						} else {
 							Format(sBufferParams, sizeof(sBufferParams), "%s%s%s=%s", sBufferParams, sComma, sKey, sValue);
 						}

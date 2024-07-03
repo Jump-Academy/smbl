@@ -44,6 +44,12 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavNode.Instance");
 	MarkNativeAsOptional("NavNode.Destroy");
 
+	MarkNativeAsOptional("NavMesh.iTimestamp.get");
+	MarkNativeAsOptional("NavMesh.iTimestamp.set");
+	MarkNativeAsOptional("NavMesh.GetFileName");
+	MarkNativeAsOptional("NavMesh.SetFileName");
+	MarkNativeAsOptional("NavMesh.GetMapName");
+	MarkNativeAsOptional("NavMesh.SetMapName");
 	MarkNativeAsOptional("NavMesh.GetNodes");
 	MarkNativeAsOptional("NavMesh.GetNodesInRange");
 	MarkNativeAsOptional("NavMesh.GetNearestNodeInRange");
@@ -144,6 +150,17 @@ methodmap NavNode {
 }
 
 methodmap NavMesh {
+	property int iTimestamp {
+		public native get();
+		public native set(int iTimestamp);
+	}
+
+	public native void GetFileName(char[] sFileName, int iMaxLength);
+	public native void SetFileName(char[] sFileName);
+
+	public native void GetMapName(char[] sMapName, int iMaxLength);
+	public native void SetMapName(char[] sMapName);
+
 	public native ArrayList GetNodes();
 	public native int GetNodesInRange(float vecPoint[3], float fRadius, ArrayList hResults, bool bCheckHulls=true);
 	public native NavNode GetNearestNodeInRange(float vecPoint[3], float fRadius=POSITIVE_INFINITY, bool bCheckHulls=false, float fSlack=0.0);

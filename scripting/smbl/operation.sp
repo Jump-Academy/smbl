@@ -56,6 +56,10 @@ enum struct _Operation {
 	PrivateForward hStepForward;
 	PrivateForward hAbortForward;
 
+	Handle hTimer;
+	int iTimerFlags;
+	bool bTimerDestroyOp;
+
 	bool bGCFlag;
 }
 
@@ -463,6 +467,9 @@ void SetupOperationNatives() {
 
 	CreateNative("Operation.Init", 						Native_Operation_Init);
 
+	CreateNative("Operation.Run",						Native_Operation_Run);
+	CreateNative("Operation.RunOnce",					Native_Operation_RunOnce);
+
 	CreateNative("Operation.Interrupt",					Native_Operation_Interrupt);
 	CreateNative("Operation.Resume",					Native_Operation_Resume);
 
@@ -820,6 +827,81 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 	return OpRet_Continue;
 }
 
+public any Native_Operation_Run(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+	if (!mOp.IsValid()) {
+		ThrowError("Invalid Operation");
+	}
+
+	int iThis = view_as<int>(mOp)-1;
+
+	switch (m_hOperations.Get(iThis, _Operation::iOpState)) {
+		case OpState_Complete: {
+			return 0;
+		}
+		case OpState_Pend, OpState_Suspend, OpState_Abort: {
+			ThrowError("Operation is not runnable");
+		}
+	}
+
+	float fInterval = GetNativeCell(2);
+	if (fInterval < 0.0) {
+		fInterval = 0.0;
+	}
+
+	int iTimerFlags = GetNativeCell(3) & (TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
+
+	bool bDestroy = GetNativeCell(4);
+
+	Handle hTimer = m_hOperations.Get(iThis, _Operation::hTimer);
+
+	if (hTimer) {
+		ThrowError("Operation is already running on a timer");
+	}
+
+	hTimer = CreateTimer(fInterval, Timer_RunOperations, mOp, iTimerFlags);
+
+	m_hOperations.Set(iThis, hTimer, _Operation::hTimer);
+	m_hOperations.Set(iThis, iTimerFlags, _Operation::iTimerFlags);
+	m_hOperations.Set(iThis, bDestroy, _Operation::bTimerDestroyOp);
+
+	return 0;
+}
+
+public any Native_Operation_RunOnce(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+	if (!mOp.IsValid()) {
+		ThrowError("Invalid Operation");
+	}
+
+	int iThis = view_as<int>(mOp)-1;
+
+	bool bDestroy = GetNativeCell(2);
+
+	switch (m_hOperations.Get(iThis, _Operation::iOpState)) {
+		case OpState_Complete: {
+			if (bDestroy) {
+				Operation.Destroy(mOp);
+			}
+
+			return OpRet_Handled;
+		}
+		case OpState_Pend, OpState_Suspend, OpState_Abort: {
+			ThrowError("Operation is not runnable");
+		}
+	}
+
+	Bot mBot = m_hOperations.Get(iThis, _Operation::mBot);
+
+	OpRet iOpRet = RunOperations(mBot, mOp);
+
+	if (iOpRet != OpRet_Continue && bDestroy) {
+		Operation.Destroy(mOp);
+	}
+
+	return iOpRet;
+}
+
 public any Native_Operation_Interrupt(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 	if (!mOp.IsValid()) {
@@ -931,10 +1013,12 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 		return 0;
 	}
 
+	int iThis = view_as<int>(mOp)-1;
+
 	bool bAbortAsComplete = GetNativeCell(2);
 
 	_Operation eOp;
-	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp);
+	m_hOperations.GetArray(iThis, eOp);
 
 	// Operation is already completed or aborted
 	if (eOp.iOpState >= OpState_Complete) {
@@ -942,7 +1026,16 @@ public any Native_Operation_Abort(Handle hPlugin, int iArgC) {
 	}
 
 	eOp.iOpState = bAbortAsComplete ? OpState_Complete : OpState_Abort;
-	m_hOperations.Set(view_as<int>(mOp)-1, eOp.iOpState, _Operation::iOpState);
+	m_hOperations.Set(iThis, eOp.iOpState, _Operation::iOpState);
+
+	Handle hTimer = m_hOperations.Get(iThis, _Operation::hTimer);
+	if (hTimer) {
+		delete hTimer;
+
+		m_hOperations.Set(iThis, INVALID_HANDLE, _Operation::hTimer);
+		m_hOperations.Set(iThis, 0, _Operation::iTimerFlags);
+		m_hOperations.Set(iThis, false, _Operation::bTimerDestroyOp);
+	}
 
 	Call_StartForward(eOp.hStateChangeForward);
 	Call_PushCell(eOp.mBot);
@@ -1266,7 +1359,8 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 		delete eOp.hInitParams;
 	}
 
-	eOp.hInitParams = null;
+	Handle hTimer = m_hOperations.Get(iThis, _Operation::hTimer);
+	delete hTimer;
 
 	delete eOp.hStateChangeForward;
 	delete eOp.hStepForward;
@@ -1321,7 +1415,6 @@ public any Native_Operation_Configure(Handle hPlugin, int iArgC) {
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
 	KeyValues hInitParams = GetNativeCellRef(2);
-	Bot mBot = GetNativeCell(3);
 
 	hInitParams.DeleteKey(OP_INIT_CONFIG); // Delete any existing config
 
@@ -1330,7 +1423,7 @@ public any Native_Operation_Configure(Handle hPlugin, int iArgC) {
 		if (eOperationTemplate.fnInit != INVALID_FUNCTION) {
 			OpData eOpData;
 			Call_StartFunction(eOperationTemplate.hPlugin, eOperationTemplate.fnInit);
-			Call_PushCell(mBot);
+			Call_PushCell(NULL_BOT);
 			Call_PushCell(NULL_OPERATION);
 			Call_PushCell(hInitParams);
 			Call_PushCell(0); // null
@@ -1475,6 +1568,27 @@ public Action Callback_SubOpAborted(Bot mBot, Operation mOp, char[] sError, Oper
 	mParentOp.SetError(sError);
 
 	return Plugin_Handled;
+}
+
+// Timers
+
+public Action Timer_RunOperations(Handle hTimer, Operation mOp) {
+	int iThis = view_as<int>(mOp)-1;
+	Bot mBot =  m_hOperations.Get(iThis, _Operation::mBot);
+
+	if (RunOperations(mBot, mOp) == OpRet_Continue) {
+		return Plugin_Continue;
+	}
+
+	// Timer expects callback to return with its handle still alive.
+	// Removing the value here prevents Operation.Destroy from killing it.
+	m_hOperations.Set(iThis, INVALID_HANDLE, _Operation::hTimer);
+
+	if (m_hOperations.Get(iThis, _Operation::bTimerDestroyOp)) {
+		Operation.Destroy(mOp);
+	}
+
+	return Plugin_Stop;
 }
 
 // Helpers
