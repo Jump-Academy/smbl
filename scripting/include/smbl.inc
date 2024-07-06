@@ -8,7 +8,6 @@
 
 #include <smbl/bot>
 #include <smbl/operation>
-#include <smbl/nav_mesh>
 
 public SharedPlugin __pl_smbl = 
 {

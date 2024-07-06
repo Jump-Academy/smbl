@@ -11,6 +11,7 @@
 #include <smlib/strings>
 
 #include <smbl>
+#include <smbl/nav_mesh>
 
 #define MANUAL_OPERATION	"Director.Debug.Manual"
 
