@@ -113,6 +113,12 @@ public void OnAllPluginsLoaded() {
 	Operation.Register(MAIN_OPERATION, _, _, _, _, _, _, _, true, true, true, false);
 }
 
+public void OnNotifyPluginUnloaded(Handle hPlugin) {
+	DeregisterPluginDirectors(hPlugin);
+	DeregisterPluginControllers(hPlugin);
+	DeregisterPluginOperations(hPlugin);
+}
+
 public void OnConfigsExecuted() {
 	char sClasses[64];
 	g_hCVBotClasses.GetString(sClasses, sizeof(sClasses));

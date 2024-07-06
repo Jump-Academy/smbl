@@ -1,15 +1,7 @@
 void SetupControllerNatives() {
-// 	CreateNative("Controller.GetIdentifier", 	Native_Controller_GetIdentifier);
-// 	CreateNative("Controller.hPlugin.get", 		Native_Controller_GetPlugin);
-
 	CreateNative("SMBL_RegisterController", Native_RegisterController);
 	CreateNative("SMBL_DeregisterController", Native_DeregisterController);
 }
-
-// public int Native_Controller_GetPlugin(Handle hPlugin, int iArgC) {
-// 	int iThis = GetNativeCell(1);
-	
-// }
 
 public int Native_RegisterController(Handle hPlugin, int iArgC) {
 	TFClassType iClass = GetNativeCell(2);
@@ -48,7 +40,7 @@ public int Native_RegisterController(Handle hPlugin, int iArgC) {
 	char sClassName[32];
 	TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
 
-	PrintToServer("SMBL registered controller: %s (%s)", eController.sIdentifier, sClassName);
+	PrintToServer("[SMBL] Registered controller: %s (%s)", eController.sIdentifier, sClassName);
 
 	return 0;
 }
@@ -59,31 +51,7 @@ public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 
 	if (iClass == TFClass_Unknown) {
 		if (IsNativeParamNullString(1)) {
-			for (TFClassType i=TFClass_Scout; i<=TFClass_Engineer; i++) {
-				StringMap hControllers = g_hControllers[view_as<int>(i)];
-				if (!hControllers) {
-					continue;
-				}
-
-				char sClassName[32];
-				TF2_GetClassName(i, sClassName, sizeof(sClassName));
-
-				StringMapSnapshot hSnapshot = hControllers.Snapshot();
-
-				Controller eController;
-				for (int j=0; j<hSnapshot.Length; j++) {
-					hSnapshot.GetKey(j, sIdentifier, sizeof(sIdentifier));
-					hControllers.GetArray(sIdentifier, eController, sizeof(Controller));
-
-					if (eController.hPlugin == hPlugin) {
-						hControllers.Remove(sIdentifier);
-						PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
-					}
-				}
-
-				delete hSnapshot;
-			}
-
+			DeregisterPluginControllers(hPlugin);
 			return true;
 		}
 
@@ -108,7 +76,7 @@ public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 
 				hControllers.Remove(sIdentifier);
 
-				PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+				PrintToServer("[SMBL] Deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
 			}
 		}
 
@@ -137,7 +105,7 @@ public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 
 			if (eController.hPlugin == hPlugin) {
 				hControllers.Remove(sIdentifier);
-				PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+				PrintToServer("[SMBL] Deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
 			}
 		}
 
@@ -158,10 +126,42 @@ public int Native_DeregisterController(Handle hPlugin, int iArgC) {
 
 		hControllers.Remove(sIdentifier);
 
-		PrintToServer("SMBL deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+		PrintToServer("[SMBL] Deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
 
 		return true;
 	}
 
 	return false;
+}
+
+// Helpers
+
+void DeregisterPluginControllers(Handle hPlugin) {
+	char sIdentifier[64];
+	char sClassName[32];
+
+	Controller eController;
+
+	for (TFClassType i=TFClass_Scout; i<=TFClass_Engineer; i++) {
+		StringMap hControllers = g_hControllers[view_as<int>(i)];
+		if (!hControllers) {
+			continue;
+		}
+
+		StringMapSnapshot hSnapshot = hControllers.Snapshot();
+
+		for (int j=0; j<hSnapshot.Length; j++) {
+			hSnapshot.GetKey(j, sIdentifier, sizeof(sIdentifier));
+			hControllers.GetArray(sIdentifier, eController, sizeof(Controller));
+
+			if (eController.hPlugin == hPlugin) {
+				hControllers.Remove(sIdentifier);
+				TF2_GetClassName(i, sClassName, sizeof(sClassName));
+
+				PrintToServer("[SMBL] Deregistered controller: %s (%s)", eController.sIdentifier, sClassName);
+			}
+		}
+
+		delete hSnapshot;
+	}
 }

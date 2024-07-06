@@ -40,18 +40,6 @@ enum DirectorAction {
 	DirectorAction_Handled
 }
 
-
-// methodmap Controller {
-// 	property Handle hPlugin {
-// 		public native get();
-// 	}
-
-// 	public native void Think(Bot mBot);
-// 	public native void Move(Bot mBot, float vecPos[3]);
-// 	public native void Encounter(Bot mBot, int iOther);
-// 	public native void Attack(Bot mBot, int iTarget);
-// }
-
 typedef DirectorThinkFunc = function void ();
 
 typedef ControllerThinkFunc = function void (Bot mBot);
@@ -67,9 +55,6 @@ native bool SMBL_DeregisterController(char[] sIdentifier=NULL_STRING, TFClassTyp
 
 native int SMBL_GetBots(ArrayList hBots=null);
 native Bot SMBL_GetClientBot(int iClient);
-
-// native void SMBL_RegisterOperation(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, CleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);
-// native bool SMBL_DeregisterOperation(char[] sIdentifier=NULL_STRING);
 
 forward void SMBL_OnBotAdd(Bot mBot);
 forward void SMBL_OnBotRemove(Bot mBot);

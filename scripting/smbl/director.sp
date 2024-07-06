@@ -24,26 +24,14 @@ public int Native_RegisterDirector(Handle hPlugin, int iArgC) {
 		g_hDirectorThinkTimer = CreateTimer(g_fDirectorThinkInterval, Timer_DirectorThink, _, TIMER_REPEAT);
 	}
 
-	PrintToServer("SMBL registered director: %s", eDirector.sIdentifier);
+	PrintToServer("[SMBL] Registered director: %s", eDirector.sIdentifier);
 
 	return 0;
 }
 
 public int Native_DeregisterDirector(Handle hPlugin, int iArgC) {
 	if (IsNativeParamNullString(1)) {
-		int iIdx;
-		while ((iIdx = g_hDirectors.FindValue(hPlugin, Director::hPlugin)) != -1) {
-			Director eDirector;
-			g_hDirectors.GetArray(iIdx, eDirector);
-			g_hDirectors.Erase(iIdx);
-
-			PrintToServer("SMBL deregistered director: %s", eDirector.sIdentifier);
-		}
-
-		if (!g_hDirectors.Length) {
-			delete g_hDirectorThinkTimer;
-		}
-
+		DeregisterPluginDirectors(hPlugin);
 		return true;
 	}
 
@@ -62,10 +50,32 @@ public int Native_DeregisterDirector(Handle hPlugin, int iArgC) {
 
 		g_hDirectors.Erase(iIdx);
 
-		PrintToServer("SMBL deregistered director: %s", eDirector.sIdentifier);
+		PrintToServer("[SMBL] Deregistered director: %s", eDirector.sIdentifier);
+
+		if (!g_hDirectors.Length) {
+			delete g_hDirectorThinkTimer;
+		}
 
 		return true;
 	}
 
 	return false;
+}
+
+// Helpers
+
+void DeregisterPluginDirectors(Handle hPlugin) {
+	Director eDirector;
+	for (int i=0; i<g_hDirectors.Length; i++) {
+		g_hDirectors.GetArray(i, eDirector);
+
+		if (eDirector.hPlugin == hPlugin) {
+			g_hDirectors.Erase(i--);
+			PrintToServer("[SMBL] Deregistered director: %s", eDirector.sIdentifier);
+		}
+	}
+
+	if (!g_hDirectors.Length) {
+		delete g_hDirectorThinkTimer;
+	}
 }

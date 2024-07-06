@@ -1179,52 +1179,19 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 	eOperationTemplate.hEventForwards = new StringMap();
 
 	if (m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), false)) {
-		PrintToServer("SMBL registered operation: %s", eOperationTemplate.sIdentifier);
+		PrintToServer("[SMBL] Registered operation: %s", eOperationTemplate.sIdentifier);
 
 		return true;
 	}
 
-	PrintToServer("SMBL failed to register operation (duplicate?): %s", eOperationTemplate.sIdentifier);
+	PrintToServer("[SMBL] Failed to register operation (duplicate?): %s", eOperationTemplate.sIdentifier);
 
 	return false;
 }
 
 public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 	if (IsNativeParamNullString(1)) {
-		StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();
-
-		for (int i=0; i<hOperationTemplatesSnapshot.Length; i++) {
-			char sIdentifier[64];
-			hOperationTemplatesSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
-
-			_OperationTemplate eOperationTemplate;
-			if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate)) && eOperationTemplate.hPlugin == hPlugin) {
-
-				StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
-
-				for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
-					char sEvent[64];
-					hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
-
-					PrivateForward hEventForward;
-					eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
-					delete hEventForward;
-				}
-
-				delete hEventForwardsSnapshot;
-				delete eOperationTemplate.hEventForwards;
-
-				DestroyDeregisteredOperation(sIdentifier);
-
-				delete eOperationTemplate.hInstances;
-				m_hOperationTemplates.Remove(sIdentifier);
-
-				PrintToServer("SMBL deregistered operation: %s", eOperationTemplate.sIdentifier);
-			}
-		}
-
-		delete hOperationTemplatesSnapshot;
-
+		DeregisterPluginOperations(hPlugin);
 		return true;
 	}
 
@@ -1592,6 +1559,42 @@ public Action Timer_RunOperations(Handle hTimer, Operation mOp) {
 }
 
 // Helpers
+
+void DeregisterPluginOperations(Handle hPlugin) {
+	StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();
+
+	char sIdentifier[64];
+	_OperationTemplate eOperationTemplate;
+
+	for (int i=0; i<hOperationTemplatesSnapshot.Length; i++) {
+		hOperationTemplatesSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+
+		if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate)) && eOperationTemplate.hPlugin == hPlugin) {
+			StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
+
+			for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
+				char sEvent[64];
+				hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
+
+				PrivateForward hEventForward;
+				eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
+				delete hEventForward;
+			}
+
+			delete hEventForwardsSnapshot;
+			delete eOperationTemplate.hEventForwards;
+
+			DestroyDeregisteredOperation(sIdentifier);
+
+			delete eOperationTemplate.hInstances;
+			m_hOperationTemplates.Remove(sIdentifier);
+
+			PrintToServer("[SMBL] Deregistered operation: %s", eOperationTemplate.sIdentifier);
+		}
+	}
+
+	delete hOperationTemplatesSnapshot;
+}
 
 void DestroyDeregisteredOperation(char[] sTemplateIdentifier) {
 	char sIdentifier[64];

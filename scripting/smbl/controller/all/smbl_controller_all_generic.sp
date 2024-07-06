@@ -17,10 +17,6 @@ public Plugin myinfo = {
 	url = "https://jumpacademy.tf"
 };
 
-public void OnPluginEnd() {
-	SMBL_DeregisterController();
-}
-
 public void OnLibraryAdded(const char[] sName) {
 	if (StrEqual(sName, "smbl")) {
 		RegisterAllClasses();

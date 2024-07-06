@@ -40,10 +40,6 @@ public Plugin myinfo = {
 int g_iLaser;
 int g_iHalo;
 
-public void OnPluginEnd() {
-	Operation.Deregister();
-}
-
 public void OnLibraryAdded(const char[] sName) {
 	if (StrEqual(sName, "smbl")) {
 		Setup_RocketJump();

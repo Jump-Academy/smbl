@@ -52,10 +52,6 @@ public Plugin myinfo = {
 public void OnPluginStart() {
 }
 
-public void OnPluginEnd() {
-	Operation.Deregister();
-}
-
 public void OnLibraryAdded(const char[] sName) {
 	if (StrEqual(sName, "smbl")) {
 		Setup_Move();

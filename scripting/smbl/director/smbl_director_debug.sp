@@ -58,11 +58,6 @@ public void OnPluginStart() {
 	LoadTranslations("common.phrases.txt");
 }
 
-public void OnPluginEnd() {
-	SMBL_DeregisterDirector();
-	Operation.Deregister();
-}
-
 public void OnLibraryAdded(const char[] sName) {
 	if (StrEqual(sName, "smbl")) {
 		SMBL_RegisterDirector(DIRECTOR_ALIAS, DirectorPriority_Admin, Director_Think);
