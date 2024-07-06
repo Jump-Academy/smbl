@@ -771,7 +771,7 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 
 	switch (eOp.iOpState) {
 		case OpState_Pend: {
-			PrintToServer("RunOp %s: Initializing", eOp.sIdentifier);
+			PrintToServer("Op.Init %s: Initializing", eOp.sIdentifier);
 
 			if (eOp.fnInit != INVALID_FUNCTION) {
 				Call_StartFunction(eOp.hPlugin, eOp.fnInit);
