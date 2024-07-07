@@ -44,6 +44,7 @@ enum BotQuotaMode {
 
 BotQuotaMode g_iBotQuotaMode;
 
+bool g_bReady;
 bool g_bShutdown = false;
 
 ConVar g_hCVBotQuota;
@@ -55,6 +56,8 @@ ConVar g_hCVBotClasses;
 ConVar g_hCVBotDebugPrefix;
 
 ConVar g_hCVThinkInterval;
+
+GlobalForward g_hStartForward;
 
 int g_iBotClasses;
 
@@ -86,6 +89,8 @@ public void OnPluginStart() {
 
 	RegAdminCmd("smbl_status", cmdStatus, ADMFLAG_ROOT, "Display the resource use of the bot library");
 
+	g_hStartForward = new GlobalForward("SMBL_OnStart", ET_Ignore);
+
 	g_hBots = new ArrayList();
 	g_hDirectors = new ArrayList(sizeof(Director));
 
@@ -100,6 +105,7 @@ public void OnPluginEnd() {
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErrMax) {
 	RegPluginLibrary("smbl");
 
+	SetupSMBLNatives();
 	SetupBotNatives();
 	SetupOperationNatives();
 	SetupControllerNatives();
@@ -111,6 +117,8 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErr
 
 public void OnAllPluginsLoaded() {
 	Operation.Register(MAIN_OPERATION, _, _, _, _, _, _, _, true, true, true, false);
+
+	RequestFrame(RequestFrameCallback_Start);
 }
 
 public void OnNotifyPluginUnloaded(Handle hPlugin) {
@@ -256,6 +264,36 @@ public void ConVarChanged_BotQuotaMode(ConVar hCVConVar, const char[] sOldValue,
 	}
 
 	SetupBots();
+}
+
+public void RequestFrameCallback_Start(any aData) {
+	g_bReady = true;
+
+	Call_StartForward(g_hStartForward);
+	Call_Finish();
+}
+
+// Natives
+
+void SetupSMBLNatives() {
+	CreateNative("SMBL_IsReady",		Native_SMBL_IsReady);
+	CreateNative("SMBL_NotifyOnStart",	Native_SMBL_NotifyOnStart);
+}
+
+public any Native_SMBL_IsReady(Handle hPlugin, int iArgC) {
+	return g_bReady && !g_bShutdown;
+}
+
+public any Native_SMBL_NotifyOnStart(Handle hPlugin, int iArgC) {
+	if (g_bReady && !g_bShutdown) {
+		Function fnForward = GetFunctionByName(hPlugin, "SMBL_OnStart");
+		if (fnForward != INVALID_FUNCTION) {
+			Call_StartFunction(hPlugin, fnForward);
+			Call_Finish();
+		}
+	}
+
+	return 0;
 }
 
 // Timers

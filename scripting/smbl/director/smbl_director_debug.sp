@@ -56,13 +56,8 @@ public void OnPluginStart() {
 	HookEvent("player_death", Event_PlayerReset, EventHookMode_Post);
 
 	LoadTranslations("common.phrases.txt");
-}
 
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		SMBL_RegisterDirector(DIRECTOR_ALIAS, DirectorPriority_Admin, Director_Think);
-		Operation.Register(MANUAL_OPERATION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, false, true, false, true);
-	}
+	SMBL_NotifyOnStart();
 }
 
 public void OnAllPluginsLoaded() {
@@ -145,7 +140,12 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 	return Plugin_Continue;
 }
 
-// Library callbacks
+// Library forwards
+
+public void SMBL_OnStart() {
+	SMBL_RegisterDirector(DIRECTOR_ALIAS, DirectorPriority_Admin, Director_Think);
+	Operation.Register(MANUAL_OPERATION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, false, true, false, true);
+}
 
 public void SMBL_OnBotAdd(Bot mBot) {
 	int iDebuggers[MAXPLAYERS];

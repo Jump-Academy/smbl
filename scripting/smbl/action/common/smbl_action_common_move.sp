@@ -50,12 +50,7 @@ public Plugin myinfo = {
 };
 
 public void OnPluginStart() {
-}
-
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		Setup_Move();
-	}
+	SMBL_NotifyOnStart();
 }
 
 #if defined DEBUG
@@ -64,6 +59,13 @@ public void OnMapStart() {
 	g_iHalo = PrecacheModel("materials/sprites/halo01.vmt");
 }
 #endif
+
+// Library forwards
+
+public void SMBL_OnStart() {
+	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
+	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
+}
 
 // Custom callbacks
 
@@ -84,11 +86,6 @@ public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, TFTeam 
 }
 
 // Helpers
-
-void Setup_Move() {
-	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
-	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
-}
 
 #if defined DEBUG
 void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {

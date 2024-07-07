@@ -37,6 +37,8 @@ public void OnPluginStart() {
 	if (GetGameTime() > 5.0) {
 		HookRegenTriggers();
 	}
+
+	SMBL_NotifyOnStart();
 }
 
 public void OnPluginEnd() {
@@ -44,9 +46,7 @@ public void OnPluginEnd() {
 }
 
 public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		SetupBots();
-	} else if (StrEqual(sName, "smbl_nav_mesh")) {
+	if (StrEqual(sName, "smbl_nav_mesh")) {
 		SetupNavMesh();
 	}
 }
@@ -76,6 +76,19 @@ public void OnMapStart() {
 public void OnMapEnd() {
 	SMBL_DeregisterNavMesh("Ground");
 	g_bNavMeshLoaded = false;
+}
+
+// Library forwards
+
+public void SMBL_OnStart() {
+	SetupBots();
+}
+
+public void SMBL_OnBotAdd(Bot mBot) {
+	int iEntity = mBot.iEntity;
+	if (Client_IsValid(iEntity)) {
+		SetupBot(mBot);
+	}
 }
 
 // Custom callbacks
@@ -126,21 +139,6 @@ public Action Hook_TouchRegen(int iEntity, int iOther) {
 
 	return Plugin_Continue;
 }
-
-public void SMBL_OnBotAdd(Bot mBot) {
-	int iEntity = mBot.iEntity;
-	if (Client_IsValid(iEntity)) {
-		SetupBot(mBot);
-// 		PrintToServer("SMBL MGA: Adding bot: %N", iEntity);
-	}
-}
-
-// public void SMBL_OnBotRemove(Bot mBot) {
-// 	int iEntity = mBot.iEntity;
-// 	if (Client_IsValid(iEntity)) {
-// 		g_mBots[iEntity] = NULL_BOT;
-// 	}	
-// }
 
 // Helpers
 
@@ -197,7 +195,6 @@ void SetupBots() {
 		Bot mBot = hBots.Get(i);
 		int iEntity = mBot.iEntity;
 		if (Client_IsValid(iEntity)) {
-// 			PrintToServer("SMBL MGA: Adding bot: %N", iEntity);
 			SetupBot(mBot);
 		}
 	}

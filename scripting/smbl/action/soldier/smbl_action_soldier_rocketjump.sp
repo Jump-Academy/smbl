@@ -40,10 +40,8 @@ public Plugin myinfo = {
 int g_iLaser;
 int g_iHalo;
 
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		Setup_RocketJump();
-	}
+public void OnPluginStart() {
+	SMBL_NotifyOnStart();
 }
 
 public void OnMapStart() {
@@ -51,12 +49,10 @@ public void OnMapStart() {
 	g_iHalo = PrecacheModel("materials/sprites/halo01.vmt");
 }
 
-void Setup_RocketJump() {
-	Operation.Register("Soldier.WallClimb", WallClimb_Init, _, _, _, UnsupportedFunction, _, WallClimb_Cleanup);
-}
+// Library forwards
 
-OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
-	return OpRet_Abort;
+public void SMBL_OnStart() {
+	Operation.Register("Soldier.WallClimb", WallClimb_Init, _, _, _, UnsupportedFunction, _, WallClimb_Cleanup);
 }
 
 // Custom callbacks
@@ -64,7 +60,6 @@ OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
 public bool TraceEntityFilter_Environment(int iEntity, int iContentsMask) {
 	return false;
 }
-
 // Helpers
 
 stock void DrawPath(ArrayList hPath, int iStart=0) {
