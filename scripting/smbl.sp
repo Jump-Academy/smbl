@@ -329,36 +329,6 @@ public any Native_SMBL_NotifyOnStart(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
-public void RequestFrameCallback_Start(any aData) {
-	g_bReady = true;
-
-	Call_StartForward(g_hStartForward);
-	Call_Finish();
-}
-
-// Natives
-
-void SetupSMBLNatives() {
-	CreateNative("SMBL_IsReady",		Native_SMBL_IsReady);
-	CreateNative("SMBL_NotifyOnStart",	Native_SMBL_NotifyOnStart);
-}
-
-public any Native_SMBL_IsReady(Handle hPlugin, int iArgC) {
-	return g_bReady && !g_bShutdown;
-}
-
-public any Native_SMBL_NotifyOnStart(Handle hPlugin, int iArgC) {
-	if (g_bReady && !g_bShutdown) {
-		Function fnForward = GetFunctionByName(hPlugin, "SMBL_OnStart");
-		if (fnForward != INVALID_FUNCTION) {
-			Call_StartFunction(hPlugin, fnForward);
-			Call_Finish();
-		}
-	}
-
-	return 0;
-}
-
 // Timers
 
 public Action Timer_DirectorThink(Handle hTimer) {
