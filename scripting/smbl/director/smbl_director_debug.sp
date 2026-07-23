@@ -95,6 +95,16 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 	GetClientAbsOrigin(iClient, vecPos);
 	Entity_GetAbsVelocity(iClient, vecVelAbs);
 
+	char sProcessIdentifier[64] = "Operations";
+
+	Controller mContr = mBot.GetController();
+	if (mContr) {
+		Operation mProcessOp = mContr.mActiveProcessOp;
+		if (mProcessOp) {
+			mProcessOp.GetIdentifier(sProcessIdentifier, sizeof(sProcessIdentifier));
+		}
+	}
+
 	Panel hDebugPanel;
 
 	char sBuffer[512];
@@ -107,7 +117,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 			if (!hDebugPanel) {
 				hDebugPanel = new Panel();
 
-				FormatEx(sBuffer, sizeof(sBuffer), "%N :: Operations ― ", iClient);
+				FormatEx(sBuffer, sizeof(sBuffer), "%N :: %s ― ", iClient, sProcessIdentifier);
 				int iTitleLength = strlen(sBuffer);
 
 				Operation mMainOperation = mBot.mMainOperation;

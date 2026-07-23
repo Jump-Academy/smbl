@@ -20,6 +20,7 @@
 #define PID_DEFAULT		{0.20,	0.001,	0.65}
 #define PID_SLOW_LAZY	{0.05,	0.001,	0.01}
 #define PID_FAST		{0.10,	0.001,	0.01}
+#define PID_FAST_PREC	{0.10,	0.000,	0.00}
 #define PID_SNAP		{1.00,	0.000,	0.00}
 
 #define COLOR_WHITE		{255, 255, 255, 255}
@@ -33,13 +34,17 @@
 #define COLOR_BLUE		{  0,   0, 255, 255}
 #define COLOR_MAGENTA	{255,   0, 255, 255}
 
+ConVar g_hCVGravity;
+
 #if defined DEBUG
 int g_iLaser;
 int g_iHalo;
 #endif
 
-#include "common/move/walk.sp"
-#include "common/move/walkfollow.sp"
+#include "move/airstrafe.sp"
+#include "move/walk.sp"
+#include "move/walk_beeline.sp"
+#include "move/walkfollow.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Common Bot Actions Library: Move",
@@ -50,6 +55,8 @@ public Plugin myinfo = {
 };
 
 public void OnPluginStart() {
+	g_hCVGravity = FindConVar("sv_gravity");
+
 	SMBL_NotifyOnStart();
 }
 
@@ -63,8 +70,10 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
+	Operation.Register("Common.AirStrafe", AirStrafe_Init, AirStrafe_Validate);
 	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
-	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
+	Operation.Register("Common.Walk.Beeline", Walk_Beeline_Init, Walk_Beeline_Validate);
+	Operation.Register("Common.Walk.Follow", Walk_Follow_Init, Walk_Follow_Validate, Walk_Follow_PreRun, _, _, _, _, true, true, false, false);
 }
 
 // Custom callbacks
@@ -87,9 +96,28 @@ public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, TFTeam 
 
 // Helpers
 
+float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
+	float fDelta0 = vecB[0] - vecA[0];
+	float fDelta1 = vecB[1] - vecA[1];
+
+	return SquareRoot(fDelta0*fDelta0 + fDelta1*fDelta1);
+}
+
 #if defined DEBUG
 void DrawDebugLine(float vecPos[3], float vecPos2[3], int iColor[4], float fLife=0.1) {
 	TE_SetupBeamPoints(vecPos, vecPos2, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 1.0, 1, 0.0, iColor, 0);
+	TE_SendToAll();
+}
+
+void DrawDebugMarker(float vecPos[3], int iColor[4], float fLife=0.1) {
+	float vecMarker[3];
+	vecMarker = vecPos;
+	vecMarker[2] += 100.0;
+	DrawDebugLine(vecPos, vecMarker, iColor, fLife);
+}
+
+void DrawDebugRing(float vecPos[3], float fRadius, int iColor[4], float fLife=0.1) {
+	TE_SetupBeamRingPoint(vecPos, fRadius-5.0, fRadius, g_iLaser, g_iHalo, 0, 66, fLife, 1.0, 0.0, iColor, 0, 0);
 	TE_SendToAll();
 }
 #endif

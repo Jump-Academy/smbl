@@ -19,7 +19,8 @@ enum OpRet {
 	OpRet_Continue,
 	OpRet_Handled,
 	OpRet_Restart,
-	OpRet_Abort
+	OpRet_Abort,
+	OpRet_Passthrough
 }
 
 enum struct OpData {
@@ -65,6 +66,7 @@ typedef OpCleanupFunc = function void (Bot mBot, Operation mOp, ArrayList hSeque
 
 typedef OpEventFwd = function void (Bot mBot, Operation mOp, OpData eOpData, any aData);
 
+typedef OpValidatedFwd = function void (Bot mBot, Operation mOp, OpRet iOpRet);
 typedef OpStateChangeFwd = function void (Bot mBot, Operation mOp, OpState iOpState);
 typedef OpStepFwd = function OpRet (Bot mBot, Operation mOp);
 typedef OpAbortFwd = function void (Bot mBot, Operation mOp, char[] sError);
@@ -128,6 +130,9 @@ methodmap Operation {
 	public native bool AddSubOperation(Operation mSubOperation, int iIndex=-1);
 	public native void ClearSubOperations();
 
+	public native bool AddValidatedForward(OpValidatedFwd fnForward);
+	public native bool RemoveValidatedForward(OpValidatedFwd fnForward);
+
 	public native bool AddStateChangeForward(OpStateChangeFwd fnForward);
 	public native bool RemoveStateChangeForward(OpStateChangeFwd fnForward);
 
@@ -171,7 +176,7 @@ methodmap Operation {
 	 */
 	public native OpRet RunOnce(bool bDestroy=true);
 
-	public native bool Interrupt();
+	public native bool Suspend(bool bBlocking=true);
 	public native bool Resume();
 
 	public native void Abort(bool bAbortAsComplete=false);

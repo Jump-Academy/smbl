@@ -21,6 +21,8 @@ int g_iEntMGARedSpawn;
 
 bool g_bNavMeshLoaded = false;
 
+Handle g_hSDKGetMaxClip1;
+
 public Plugin myinfo = {
 	name = "SMBL Game Mode - MGA",
 	author = PLUGIN_AUTHOR,
@@ -36,6 +38,24 @@ public void OnPluginStart() {
 
 	if (GetGameTime() > 5.0) {
 		HookRegenTriggers();
+	}
+
+	char sFilePath[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "gamedata/jse.regen.txt");
+	if(FileExists(sFilePath)) {
+		Handle hGameConf = LoadGameConfigFile("jse.regen");
+		if(hGameConf != INVALID_HANDLE ) {
+			StartPrepSDKCall(SDKCall_Entity);
+			PrepSDKCall_SetFromConf(hGameConf, SDKConf_Virtual, "CTFWeaponBase::GetMaxClip1");
+			PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_ByValue);
+			g_hSDKGetMaxClip1 = EndPrepSDKCall();
+
+			CloseHandle(hGameConf);
+		}
+
+		if (g_hSDKGetMaxClip1 == null) {
+			LogError("Failed to load jse.regen gamedata.  Weapon clip regen will not be available.");
+		}
 	}
 
 	SMBL_NotifyOnStart();
@@ -71,6 +91,8 @@ public void OnMapStart() {
 	if (LibraryExists("smbl_nav_mesh")) {
 		SetupNavMesh();
 	}
+
+	CreateTimer(0.1, Timer_AmmoRegen, 0, TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 }
 
 public void OnMapEnd() {
@@ -112,6 +134,8 @@ public Action Event_PlayerSpawn(Event hEvent, const char[] sName, bool bDontBroa
 		TeleportEntity(iClient, vecPos, NULL_VECTOR, NULL_VECTOR);
 		EquipMarketGardener(iClient);
 		Client_SetFOV(iClient, 90);
+
+// 		SetEntProp(iClient, Prop_Send, "m_bGlowEnabled", 1);
 	}
 
 	return Plugin_Continue;
@@ -137,6 +161,22 @@ public Action Hook_TouchRegen(int iEntity, int iOther) {
 		return Plugin_Handled;
 	}
 
+	return Plugin_Continue;
+}
+
+public Action Timer_AmmoRegen(Handle hTimer) {
+	for (int i=1; i<=MaxClients; i++) {
+		if (Client_IsValid(i) && SMBL_GetClientBot(i)) {
+			int iWeapon1 = GetPlayerWeaponSlot(i, TFWeaponSlot_Primary);
+			if (iWeapon1 != -1) {
+				int iAmmoType1 = GetEntProp(iWeapon1, Prop_Data, "m_iPrimaryAmmoType");
+				GivePlayerAmmo(i, 500, iAmmoType1, true);
+
+				int iMaxClip = SDKCall(g_hSDKGetMaxClip1, iWeapon1);
+				SetEntProp(iWeapon1, Prop_Send, "m_iClip1", iMaxClip);
+			}
+		}
+	}
 	return Plugin_Continue;
 }
 
@@ -188,22 +228,59 @@ Handle CreateMGWeaponHandle() {
 }
 
 void SetupBots() {
-	ArrayList hBots = new ArrayList();
-	int iBotsLength = SMBL_GetBots(hBots);
+	int iRed, iBlue;
+	CountBotTeams(iRed, iBlue);
 
-	for (int i=0; i<iBotsLength; i++) {
-		Bot mBot = hBots.Get(i);
-		int iEntity = mBot.iEntity;
-		if (Client_IsValid(iEntity)) {
-			SetupBot(mBot);
-		}
+	if (iBlue == iRed) {
+		return;
 	}
 
-	delete hBots;
+	int iSwapCount;
+	TFTeam iSourceTeam, iTargetTeam;
+
+	if (iRed < iBlue) {
+		iSwapCount = (iBlue-iRed)/2;
+
+		iSourceTeam = TFTeam_Blue;
+		iTargetTeam = TFTeam_Red;
+	} else {
+		iSwapCount = (iRed-iBlue)/2;
+
+		iSourceTeam = TFTeam_Red;
+		iTargetTeam = TFTeam_Blue;
+	}
+
+	for (int i=MaxClients; i>=1 && iSwapCount; i--) {
+		if (!IsClientInGame(i) || !SMBL_GetClientBot(i)) {
+			continue;
+		}
+
+		TFTeam iTeam = TF2_GetClientTeam(i);
+
+		if (iTeam == iSourceTeam) {
+			TF2_ChangeClientTeam(i, iTargetTeam);
+			iSwapCount--;
+		}
+	}
 }
 
 void SetupBot(Bot mBot) {
-	mBot.SetController("Generic");
+	int iBotEntity = mBot.iEntity;
+	if (!(1 <= iBotEntity <= MaxClients)) {
+		return;
+	}
+
+	mBot.SetController("Soldier.Trolldier");
+
+	int iRed, iBlue;
+	CountBotTeams(iRed, iBlue);
+
+	if (iRed == iBlue) {
+		return;
+	}
+
+	TFTeam iTargetTeam = iRed < iBlue ? TFTeam_Red : TFTeam_Blue;
+	TF2_ChangeClientTeam(iBotEntity, iTargetTeam);
 }
 
 void SetupNavMesh() {
@@ -226,5 +303,20 @@ void HookRegenTriggers() {
 	int iEntity = -1;
 	while ((iEntity = FindEntityByClassname(iEntity, "func_regenerate")) != INVALID_ENT_REFERENCE) {
 		SDKHook(iEntity, SDKHook_Touch, Hook_TouchRegen);
+	}
+}
+
+void CountBotTeams(int &iRed, int &iBlue) {
+	iRed = iBlue = 0;
+
+	for (int i=1; i<=MaxClients; i++) {
+		if (IsClientInGame(i) && SMBL_GetClientBot(i)) {
+			switch (TF2_GetClientTeam(i)) {
+				case TFTeam_Red:
+					iRed++;
+				case TFTeam_Blue:
+					iBlue++;
+			}
+		}
 	}
 }

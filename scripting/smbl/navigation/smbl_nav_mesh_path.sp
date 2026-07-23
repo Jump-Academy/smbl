@@ -1,8 +1,5 @@
 #include <sdktools_trace>
 
-#define POSITIVE_INFINITY		view_as<float>(0x7F800000)
-#define NEGATIVE_INFINITY		view_as<float>(0xFF800000)
-
 enum struct _NavPath {
 	ArrayList hPathData;
 	NavMesh mNavMesh;
@@ -743,12 +740,18 @@ public any Native_Navigation_FindShortestPath(Handle hPlugin, int iArgC) {
 
 					hFrontierDataMap.SetArray(sKey, eNewFrontierData, sizeof(FrontierData));
 
+					PrintToServer("mStartNode=%d, mEndNode=%d", mStartNode, mEndNode);
 					ArrayList hPathData = BuildPathData(hFrontierDataMap, eNewFrontierData, true);
 
 					delete hFrontierDataMap;
 					delete hFrontier;
 
 					PrintToServer("Main search stopped with goal node in %.3f ms", 1000*(GetEngineTime()-fTimestamp));
+
+					// FIXME: Self-loop error workaround
+					if (!hPathData) {
+						return NULL_NAV_PATH;
+					}
 
 					return CreateNavPath(hPathData, mNavMesh, fTotalCost);
 				}
@@ -1019,6 +1022,8 @@ ArrayList BuildPathData(StringMap hFrontierDataMap, FrontierData eFrontierData, 
 
 	hPathResult.PushArray(ePathData);
 
+// 	PrintToServer("BuildPathData: node=%d", eFrontierData.mNode);
+
 	if (bDeleteFrontierEdgeData) {
 		hFrontierDataMap.Remove(eFrontierData.sIdentifier);
 	}
@@ -1028,6 +1033,8 @@ ArrayList BuildPathData(StringMap hFrontierDataMap, FrontierData eFrontierData, 
 
 	while (sCurrentIdentifier[0]) {
 		hFrontierDataMap.GetArray(sCurrentIdentifier, eFrontierData, sizeof(FrontierData));
+
+// 		PrintToServer("BuildPathData: node=%d", eFrontierData.mNode);
 
 		ePathData.mNavNode = eFrontierData.mNode;
 		ePathData.iEntryEdge = eFrontierData.iEdge;
@@ -1045,6 +1052,17 @@ ArrayList BuildPathData(StringMap hFrontierDataMap, FrontierData eFrontierData, 
 
 		if (bDeleteFrontierEdgeData) {
 			hFrontierDataMap.Remove(sCurrentIdentifier);
+		}
+
+		// FIXME: Self-loop error
+		if (StrEqual(sCurrentIdentifier, eFrontierData.sParentIdentifier)) {
+			LogError("Self-loop");
+
+			DeleteEdgeData(hFrontierDataMap);
+
+			delete hPathResult;
+
+			return null;
 		}
 
 		sCurrentIdentifier = eFrontierData.sParentIdentifier;

@@ -50,8 +50,18 @@ typedef ControllerAttackFunc = function void (Bot mBot, int iTarget);
 native void SMBL_RegisterDirector(char[] sIdentifier, DirectorPriority iDirectorPriority, DirectorThinkFunc fnThink);
 native bool SMBL_DeregisterDirector(char[] sIdentifier=NULL_STRING);
 
-native void SMBL_RegisterController(char[] sIdentifier, TFClassType iClass, ControllerThinkFunc fnThink, ControllerMoveFunc fnMove, ControllerEncounterFunc fnEncounter, ControllerAttackFunc fnAttack);
-native bool SMBL_DeregisterController(char[] sIdentifier=NULL_STRING, TFClassType iClass=TFClass_Unknown);
+/**
+ * Returns whether the bot library is ready to accept registrations.
+ * @return True if ready, false if setting up or shutting down
+ */
+native bool SMBL_IsReady();
+
+/**
+ * Request the bot library to notify the plugin it is ready to accept registrations via a call to SMBL_OnStart().
+ * Use this to request a call to the forward if this plugin is late loaded, such as in OnPluginStart().
+ * Calling this in OnPluginStart() will not cause a duplicate call to the SMBL_OnStart() forward.
+ */
+native void SMBL_NotifyOnStart();
 
 /**
  * Returns whether the bot library is ready to accept registrations.
@@ -68,6 +78,7 @@ native void SMBL_NotifyOnStart();
 
 native int SMBL_GetBots(ArrayList hBots=null);
 native Bot SMBL_GetClientBot(int iClient);
+native Bot SMBL_GetEntityBot(int iEntity);
 
 /**
  * Called when the bot library is ready to accept registrations.

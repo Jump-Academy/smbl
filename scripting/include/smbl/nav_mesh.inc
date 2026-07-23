@@ -18,6 +18,8 @@ public SharedPlugin __pl_smbl_nav_mesh = {
 
 #if !defined REQUIRE_PLUGIN
 public void __pl_smbl_nav_mesh_SetNTVOptional() {
+	MarkNativeAsOptional("NavNode.iIndex.get");
+	MarkNativeAsOptional("NavNode.iIndex.set");
 	MarkNativeAsOptional("NavNode.iVertices.get");
 	MarkNativeAsOptional("NavNode.iVertices.set");
 	MarkNativeAsOptional("NavNode.GetOrigin");
@@ -54,12 +56,16 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavMesh.GetNodesInRange");
 	MarkNativeAsOptional("NavMesh.GetNearestNodeInRange");
 	MarkNativeAsOptional("NavMesh.UpdateIndex");
+	MarkNativeAsOptional("NavMesh.LookupCache");
 
 	MarkNativeAsOptional("NavMesh.Instance");
 	MarkNativeAsOptional("NavMesh.Destroy");
 
 	MarkNativeAsOptional("NavMesh.LoadNavFile");
 	MarkNativeAsOptional("NavMesh.SaveNavFile");
+
+	MarkNativeAsOptional("NavMesh.SetCacheable");
+	MarkNativeAsOptional("NavMesh.RemoveCacheable");
 
 	MarkNativeAsOptional("Navigation.FindShortestPath");
 	MarkNativeAsOptional("Navigation.CheckLineOfSight");
@@ -99,8 +105,14 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 
 #define NaN					view_as<float>(0x7FC00000)
 #define POSITIVE_INFINITY	view_as<float>(0x7F800000)
+#define NEGATIVE_INFINITY	view_as<float>(0xFF800000)
 
 methodmap NavNode {
+	property int iIndex {
+		public native get();
+		public native set(int iIndex);
+	}
+
 	property int iVertices {
 		public native get();
 		public native set(int iVertices);
@@ -166,12 +178,19 @@ methodmap NavMesh {
 	public native NavNode GetNearestNodeInRange(float vecPoint[3], float fRadius=POSITIVE_INFINITY, bool bCheckHulls=false, float fSlack=0.0);
 	public native void UpdateIndex();
 
+	public native bool LookupCache(char[] sBucketName, NavNode mNodeA, NavNode mNodeB, KeyValues hKVData=null);
+
 	public static native NavMesh Instance();
 	public static native void Destroy(NavMesh mNavMesh);
 
 	public static native NavMesh LoadNavFile(char[] sFilePath);
 	public static native bool SaveNavFile(NavMesh mNavMesh, char[] sFilePath);
+
+	public static native bool RegisterCache(char[] sBucketName, Function fnNavCacheableFunc);
+	public static native bool DeregisterCache(char[] sBucketName=NULL_STRING);
 }
+
+typedef NavCacheableFunc = function bool (NavNode mNodeA, NavNode mNodeB, KeyValues hKVData);
 
 enum PathMode {
 	PathMode_Normal,
@@ -247,3 +266,23 @@ native bool SMBL_RegisterNavMesh(char[] sIdentifier, NavMesh mNavMesh);
 native bool SMBL_DeregisterNavMesh(char[] sIdentifier, bool bDestroy=false);
 native void SMBL_DeregisterAllNavMeshes(bool bDestroy=false);
 native NavMesh SMBL_GetNavMesh(char[] sIdentifier);
+
+/**
+ * Returns whether the navigation mesh is ready to accept caching.
+ * @return True if ready, false if setting up
+ */
+native bool SMBL_NavMesh_IsCacheReady();
+
+/**
+ * Request the navigation mesh library to notify the plugin it is ready to accept caching via a call to SMBL_NavMesh_OnCache().
+ * Use this to request a call to the forward if this plugin is late loaded, such as in OnPluginStart().
+ * Calling this in OnPluginStart() will not cause a duplicate call to the SMBL_NavMesh_OnCache() forward.
+ */
+native void SMBL_NavMesh_NotifyOnCache();
+
+/**
+ * Called when the navigation mesh library is ready to accept caching.
+ * This is normally called automatically after OnAllPluginsLoaded() but plugins can request a call
+ * via SMBL_NavMesh_NotifyOnCache() in case of late-loading.
+ */
+forward void SMBL_NavMesh_OnCache();

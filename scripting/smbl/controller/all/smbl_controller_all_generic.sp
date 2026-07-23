@@ -8,6 +8,8 @@
 #define CONTROLLER_ALIAS "Generic"
 
 #include <smbl>
+#include <smbl/controller>
+#include <smbl/nav_mesh>
 
 public Plugin myinfo = {
 	name = "SMBL Controller - All-class Generic",
@@ -25,29 +27,24 @@ public void OnPluginStart() {
 
 public void SMBL_OnStart() {
 	for (TFClassType i=TFClass_Scout; i<=TFClass_Engineer; i++) {
-		SMBL_RegisterController(CONTROLLER_ALIAS, i, Controller_Think, Controller_Move, Controller_Encounter, Controller_Attack);
+		Controller.Register(CONTROLLER_ALIAS, ContrInitFunc_Generic_Init, i);
 	}
 }
 
 // Controller callbacks
 
-public void Controller_Think(Bot mBot) {
+public void ContrInitFunc_Generic_Init(Controller mContr) {
+	mContr.AddMonitor("TargetAcquisition.FOV").Start();
 
-}
+// 	mContr.AddProcess(Operation.Instance("Process.Combat.Attack"), ProcessPriority_AboveNormal);
 
-public void Controller_Move(Bot mBot, float vecCoords[3]) {
-	int iClient = mBot.iEntity;
-	if (!IsPlayerAlive(iClient)) {
-		return;
-	}
+	mContr.AddAction("Common.Walk", ActionType_Move);
 
-	
-}
+	NavMesh mGroundNavMesh = SMBL_GetNavMesh("Ground");
 
-public void Controller_Encounter(Bot mBot, int iOther) {
+	KeyValues hIdleRoamInitParams;
+	mContr.AddProcess("Process.Idle.Roam", ProcessPriority_BelowNormal, hIdleRoamInitParams);
+	hIdleRoamInitParams.SetNum("nav_mesh", view_as<int>(mGroundNavMesh));
 
-}
-
-public void Controller_Attack(Bot mBot, int iTarget) {
-
+	mContr.AddProcess("Process.Idle.LookAround", ProcessPriority_Low);
 }

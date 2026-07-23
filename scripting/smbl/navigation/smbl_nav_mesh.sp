@@ -5,7 +5,11 @@
 #define PLUGIN_AUTHOR "AI"
 #define PLUGIN_VERSION "0.1.0"
 
+#include <sourcemod>
+#include <regex>
+#include <smbl>
 #include <smbl/nav_mesh>
+#include "smbl/navigation/smbl_nav_mesh_cache.sp"
 #include "smbl/navigation/smbl_nav_mesh_path.sp"
 
 #undef REQUIRE_PLUGIN
@@ -19,10 +23,8 @@
 
 #define BBOX_BUFFER				50.0
 
-#define POSITIVE_INFINITY		view_as<float>(0x7F800000)
-#define NEGATIVE_INFINITY		view_as<float>(0xFF800000)
-
 enum struct _NavNode {
+	int iIndex;
 	float vecOrigin[3];
 	float vecVertices[MAX_VERTICES*3];
 	float vecVertexAngles[MAX_VERTICES*3];
@@ -603,8 +605,8 @@ enum struct _NavNode {
 
 enum struct _NavMesh {
 	ArrayList hNavNodes;
-	ArrayList hVertexNodes;
 	Octree mOctree;
+	StringMap hNavCaches;
 	char sFileName[PLATFORM_MAX_PATH];
 	char sMapName[PLATFORM_MAX_PATH];
 	int iTimestamp;
@@ -623,6 +625,8 @@ ArrayList g_hNavMeshes;
 StringMap g_hNavMeshesMap;
 bool g_bOctreeAvailable;
 
+Regex g_hValidFileNameRegex;
+
 public Plugin myinfo = {
 	name = "SMBL NavMesh",
 	author = PLUGIN_AUTHOR,
@@ -634,10 +638,16 @@ public Plugin myinfo = {
 public void OnPluginStart() {
 	CreateConVar("smbl_nav_mesh_version", PLUGIN_VERSION, "SMBL navigation mesh version -- Do not modify", FCVAR_NOTIFY | FCVAR_DONTRECORD);
 
+	RegAdminCmd("smbl_nav_flush", cmdFlush, ADMFLAG_ROOT, "Flush the data cache for all loaded navigation meshes");
+
 	g_hNavNodes = new ArrayList(sizeof(_NavNode));
 	g_hNavMeshes = new ArrayList(sizeof(_NavMesh));
 
 	g_hNavMeshesMap = new StringMap();
+
+	g_hValidFileNameRegex = new Regex("^[^\\/:\\*\\?\"<>\\|]+$");
+
+	SMBL_NotifyOnStart();
 }
 
 public void OnPluginEnd() {
@@ -680,14 +690,36 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErr
 	RegPluginLibrary("smbl_nav_mesh");
 
 	SetupNavNatives();
+	SetupCacheNatives();
 	SetupPathNatives();
 
 	return APLRes_Success;
 }
 
+public void OnNotifyPluginUnloaded(Handle hPlugin) {
+	CheckUnloadCacheable(hPlugin);
+
+	for (int i=0; i<g_hNavMeshes.Length; i++) {
+		_NavMesh eNavMesh;
+		g_hNavMeshes.GetArray(i, eNavMesh);
+
+		if (!eNavMesh.bGCFlag) {
+			CheckUnloadCaches(hPlugin, eNavMesh.hNavCaches);
+		}
+	}
+}
+
+// Library callbacks
+
+public void SMBL_OnStart() {
+	Setup_CacheOperation();
+}
+
 // Navigation node natives
 
 void SetupNavNatives() {
+	CreateNative("NavNode.iIndex.get", 					Native_NavNode_GetIndex);
+	CreateNative("NavNode.iIndex.set", 					Native_NavNode_SetIndex);
 	CreateNative("NavNode.iVertices.get", 				Native_NavNode_GetVertices);
 	CreateNative("NavNode.iVertices.set", 				Native_NavNode_SetVertices);
 	CreateNative("NavNode.GetOrigin", 					Native_NavNode_GetOrigin);
@@ -741,6 +773,44 @@ void SetupNavNatives() {
 	CreateNative("SMBL_DeregisterNavMesh",				Native_DeregisterNavMesh);
 	CreateNative("SMBL_DeregisterAllNavMeshes",			Native_DeregisterAllNavMeshes);
 	CreateNative("SMBL_GetNavMesh",						Native_GetNavMesh);
+}
+
+public int Native_NavNode_GetIndex(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	return g_hNavNodes.Get(iThis, _NavNode::iIndex);
+}
+
+public int Native_NavNode_SetIndex(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iIndex = GetNativeCell(2);
+
+	if (iIndex < 0) {
+		ThrowError("Invalid index: %d", iIndex);
+	}
+
+	g_hNavNodes.Set(iThis, iIndex, _NavNode::iIndex);
+
+	return 0;
+}
+
+public int Native_NavNode_GetVertices(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+
+	return g_hNavNodes.Get(iThis, _NavNode::iVertices);
+}
+
+public int Native_NavNode_SetVertices(Handle hPlugin, int iArgC) {
+	int iThis = GetNativeCell(1)-1;
+	int iVertices = GetNativeCell(2);
+
+	if (iVertices < 0 || iVertices > MAX_VERTICES) {
+		ThrowError("Invalid number of vertices: %d", iVertices);
+	}
+
+	g_hNavNodes.Set(iThis, iVertices, _NavNode::iVertices);
+
+	return 0;
 }
 
 public int Native_NavNode_GetOrigin(Handle hPlugin, int iArgC) {
@@ -807,12 +877,6 @@ public int Native_NavNode_SetVertex(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
-public int Native_NavNode_GetVertices(Handle hPlugin, int iArgC) {
-	int iThis = GetNativeCell(1)-1;
-
-	return g_hNavNodes.Get(iThis, _NavNode::iVertices);
-}
-
 public int Native_NavNode_GetVertexAngles(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 	int iVertex = GetNativeCell(2);
@@ -828,19 +892,6 @@ public int Native_NavNode_GetVertexAngles(Handle hPlugin, int iArgC) {
 	eNavNode.GetVertexAngles(iVertex, vecAngles);
 
 	SetNativeArray(3, vecAngles, sizeof(vecAngles));
-
-	return 0;
-}
-
-public int Native_NavNode_SetVertices(Handle hPlugin, int iArgC) {
-	int iThis = GetNativeCell(1)-1;
-	int iVertices = GetNativeCell(2);
-
-	if (iVertices < 0 || iVertices > MAX_VERTICES) {
-		ThrowError("Invalid number of vertices: %d", iVertices);
-	}
-
-	g_hNavNodes.Set(iThis, iVertices, _NavNode::iVertices);
 
 	return 0;
 }
@@ -933,7 +984,6 @@ public any Native_NavNode_GetNearestEdgeProjection(Handle hPlugin, int iArgC) {
 
 	return fDist;
 }
-
 
 public any Native_NavNode_GetHullProjection(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
@@ -1402,6 +1452,7 @@ public int Native_NavMesh_UpdateIndex(Handle hPlugin, int iArgC) {
 public any Native_NavMesh_Instance(Handle hPlugin, int iArgC) {
 	_NavMesh eNavMesh;
 	eNavMesh.hNavNodes = new ArrayList();
+	eNavMesh.hNavCaches = new StringMap();
 
 	int iFreeIdx = g_hNavMeshes.FindValue(true, _NavMesh::bGCFlag);
 	if (iFreeIdx != -1) {
@@ -1419,18 +1470,23 @@ public any Native_NavMesh_Destroy(Handle hPlugin, int iArgC) {
 		return 0;
 	}
 
-	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
-	int iNavNodesLength = hNavNodes.Length;
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	int iNavNodesLength = eNavMesh.hNavNodes.Length;
 	for (int i=0; i<iNavNodesLength; i++) {
-		NavNode mNavNode = hNavNodes.Get(i);
+		NavNode mNavNode = eNavMesh.hNavNodes.Get(i);
 		NavNode.Destroy(mNavNode);
 	}
-	delete hNavNodes;
+	delete eNavMesh.hNavNodes;
 
-	Octree mOctree = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::mOctree);
+	Octree mOctree = eNavMesh.mOctree;
 	if (mOctree) {
 		Octree.Destroy(mOctree);
 	}
+
+	ClearCaches(eNavMesh.hNavCaches);
+	delete eNavMesh.hNavCaches;
 
 	g_hNavMeshes.Set(iNavMeshIdx, true, _NavMesh::bGCFlag);
 
@@ -1470,21 +1526,21 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	}
 
 	char sFileName[PLATFORM_MAX_PATH];
-	int iPathFileSplit = FindCharInString(sFilePath, '/', true);
-	if (iPathFileSplit == -1) {
-		sFileName = sFilePath;
-	} else {
-		strcopy(sFileName, sizeof(sFileName), sFilePath[iPathFileSplit+1]);
-	}
+	GetBaseFileName(sFilePath, sFileName, sizeof(sFileName));
 
 	NavMesh mNavMesh = NavMesh.Instance();
-	mNavMesh.SetFileName(sFileName);
+	int iNavMeshIdx = view_as<int>(mNavMesh)-1;
+
+	_NavMesh eNavMesh;
+	g_hNavMeshes.GetArray(iNavMeshIdx, eNavMesh);
+
+	eNavMesh.sFileName = sFileName;
 
 	hFile.Seek(0xA, SEEK_SET);
 
 	int iTimestamp;
 	hFile.ReadInt32(iTimestamp);
-	mNavMesh.iTimestamp = iTimestamp;
+	eNavMesh.iTimestamp = iTimestamp;
 
 	hFile.Seek(0xE, SEEK_SET);
 
@@ -1497,7 +1553,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 		PrintToServer("[SMBL] Warning: Map mismatch (%s): %s", sFileMapName, sFilePath);
 	}
 
-	mNavMesh.SetMapName(sFileMapName);
+	eNavMesh.sMapName = sFileMapName;
 
 	hFile.Seek(0x2E, SEEK_SET);
 	int iMetaPosNodeData;
@@ -1511,8 +1567,6 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 
 	int iNavNodesLength;
 	hFile.ReadInt32(iNavNodesLength);
-
-	ArrayList hNavNodes = mNavMesh.GetNodes();
 
 	float vecPoint[3];
 	for (int i=0; i<iNavNodesLength; i++) {
@@ -1539,7 +1593,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 
 		mNavNode.Update();
 
-		hNavNodes.Push(mNavNode);
+		mNavNode.iIndex = eNavMesh.hNavNodes.Push(mNavNode);
 	}
 
 	hFile.Seek(iMetaPosAttachmentData, SEEK_SET);
@@ -1547,7 +1601,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	int iAttachmentCount;
 
 	for (int i=0; i<iNavNodesLength; i++) {
-		NavNode mNavNode = hNavNodes.Get(i);
+		NavNode mNavNode = eNavMesh.hNavNodes.Get(i);
 
 		int iVertices = mNavNode.iVertices;
 		for (int j=0; j<iVertices; j++) {
@@ -1564,7 +1618,7 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 				hFile.ReadUint8(iAttachedNodeEdge);
 				hFile.ReadInt32(iAttachmentFlags);
 
-				mAttachedNode = iAttachedNodeIdx == -1 ? NULL_NAV_NODE : hNavNodes.Get(iAttachedNodeIdx);
+				mAttachedNode = iAttachedNodeIdx == -1 ? NULL_NAV_NODE : eNavMesh.hNavNodes.Get(iAttachedNodeIdx);
 
 				mNavNode.PushAttachment(j, mAttachedNode, iAttachedNodeEdge, iAttachmentFlags);
 
@@ -1579,16 +1633,18 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 
 	PrintToServer("[SMBL] Loaded nav mesh with %d nodes and %d attachments in %.3f ms", iNavNodesLength, iAttachmentCount, 1000*(GetEngineTime()-fTimestamp));
 
-	mNavMesh.UpdateIndex();
+	PopulateCaches(eNavMesh.hNavCaches, iTimestamp, sFileName, eNavMesh.hNavNodes);
 
+	g_hNavMeshes.SetArray(iNavMeshIdx, eNavMesh);
+
+	mNavMesh.UpdateIndex();
 
 	return mNavMesh;
 }
 
 public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
-	NavMesh mNavMesh;
-	mNavMesh = GetNativeCell(1);
-	if (!mNavMesh) {
+	int iNavMeshIdx = GetNativeCell(1)-1;
+	if (iNavMeshIdx < 0) {
 		return false;
 	}
 
@@ -1634,7 +1690,7 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 
 	hFile.Seek(iPosNodeData, SEEK_SET);
 
-	ArrayList hNavNodes = mNavMesh.GetNodes();
+	ArrayList hNavNodes = g_hNavMeshes.Get(iNavMeshIdx, _NavMesh::hNavNodes);
 	int iNavNodesLength = hNavNodes.Length;
 
 	// Lookup 0x2E for this address
@@ -1707,11 +1763,11 @@ public int Native_RegisterNavMesh(Handle hPlugin, int iArgC) {
 	NavMesh mNavMesh = GetNativeCell(2);
 
 	if (g_hNavMeshesMap.SetValue(sIdentifier, mNavMesh, false)) {
-		PrintToServer("SMBL registered navigation mesh: %s", sIdentifier);
+		PrintToServer("[SMBL] Registered navigation mesh: %s", sIdentifier);
 		return true;
 	}
 
-	PrintToServer("SMBL cannot register navigation mesh: %s (duplicate?)", sIdentifier);
+	PrintToServer("[SMBL] Cannot register navigation mesh: %s (duplicate?)", sIdentifier);
 
 	return false;
 }
@@ -1724,11 +1780,11 @@ public int Native_DeregisterNavMesh(Handle hPlugin, int iArgC) {
 	if (bDestroy) {
 		NavMesh mNavMesh;
 		if (!g_hNavMeshesMap.GetValue(sIdentifier, mNavMesh)) {
-			PrintToServer("SMBL cannot find navigation mesh to deregister: %s", sIdentifier);
+			PrintToServer("[SMBL] Cannot find navigation mesh to deregister: %s", sIdentifier);
 			return false;
 		}
 
-		PrintToServer("SMBL deregistered navigation mesh: %s", sIdentifier);
+		PrintToServer("[SMBL] Deregistered navigation mesh: %s", sIdentifier);
 
 		NavMesh.Destroy(mNavMesh);
 	}
@@ -1753,7 +1809,7 @@ public int Native_DeregisterAllNavMeshes(Handle hPlugin, int iArgC) {
 
 		delete hSnapshot;
 
-		PrintToServer("SMBL deregistered %d navigation meshes", g_hNavMeshesMap.Size);
+		PrintToServer("[SMBL] Deregistered %d navigation meshes", g_hNavMeshesMap.Size);
 	}
 
 	g_hNavMeshes.Clear();
@@ -1769,6 +1825,69 @@ public any Native_GetNavMesh(Handle hPlugin, int iArgC) {
 	g_hNavMeshesMap.GetValue(sIdentifier, mNavMesh);
 
 	return mNavMesh;
+}
+
+// Commands
+
+public Action cmdFlush(int iClient, int iArgC) {
+	char sFilePath[PLATFORM_MAX_PATH];
+	char sCacheDirectoryPath[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sCacheDirectoryPath, sizeof(sCacheDirectoryPath), "data/smbl/nav/.cache");
+
+	ArrayList hCachePopulateQueue = new ArrayList();
+
+	bool bFlushed;
+	if (DirExists(sCacheDirectoryPath)) {
+		for (int i=0; i<g_hNavMeshes.Length; i++) {
+			_NavMesh eNavMesh;
+			g_hNavMeshes.GetArray(i, eNavMesh);
+
+			if (!eNavMesh.bGCFlag && eNavMesh.sFileName[0]) {
+				BuildPath(Path_SM, sCacheDirectoryPath, sizeof(sCacheDirectoryPath), "data/smbl/nav/.cache/%s", eNavMesh.sFileName);
+
+				if (!DirExists(sCacheDirectoryPath)) {
+					continue;
+				}
+
+				DirectoryListing hDirectoryListing = OpenDirectory(sCacheDirectoryPath);
+
+				FileType iFileType;
+				while (hDirectoryListing.GetNext(sFilePath, sizeof(sFilePath), iFileType)) {
+					if (iFileType == FileType_File) {
+						Format(sFilePath, sizeof(sFilePath), "%s/%s", sCacheDirectoryPath, sFilePath);
+						DeleteFile(sFilePath);
+					}
+				}
+
+				ClearCaches(eNavMesh.hNavCaches);
+
+				if (RemoveDir(sCacheDirectoryPath)) {
+					bFlushed = true;
+				} else {
+					LogError("Failed to remove navigation cache data under %s.", eNavMesh.sFileName);
+				}
+
+				hCachePopulateQueue.Push(i);
+			}
+		}
+	}
+
+	for (int i=0; i<hCachePopulateQueue.Length; i++) {
+		_NavMesh eNavMesh;
+		g_hNavMeshes.GetArray(hCachePopulateQueue.Get(i), eNavMesh);
+
+		PopulateCaches(eNavMesh.hNavCaches, eNavMesh.iTimestamp, eNavMesh.sFileName, eNavMesh.hNavNodes);
+	}
+
+	delete hCachePopulateQueue;
+
+	if (bFlushed) {
+		ReplyToCommand(iClient, "[SMBL] Flushed navigation caches.");
+	} else {
+		ReplyToCommand(iClient, "[SMBL] No caches were flushed.");
+	}
+
+	return Plugin_Handled;
 }
 
 // Helpers
@@ -1844,4 +1963,28 @@ void PackCellToStr(any aKey, char[] sBuffer) {
 	sBuffer[3] = ((i >>  7) & 0x7F) | 0x80;
 	sBuffer[4] = ((i      ) & 0x7F) | 0x80;
 	sBuffer[5] = 0;
+}
+
+ArrayList GetNavMeshes() {
+	return g_hNavMeshes;
+}
+
+bool IsValidFileName(char[] sFileName) {
+	return g_hValidFileNameRegex.Match(sFileName) < 1;
+}
+
+void GetBaseFileName(char[] sFilePath, char[] sFileName, int iMaxLength, bool bKeepFileExt=false) {
+	int iPathFileSplit = FindCharInString(sFilePath, '/', true);
+	if (iPathFileSplit == -1) {
+		strcopy(sFileName, iMaxLength, sFilePath);
+	} else {
+		strcopy(sFileName, iMaxLength, sFilePath[iPathFileSplit+1]);
+	}
+
+	if (!bKeepFileExt) {
+		int iFileExtSplit = FindCharInString(sFileName, '.', true);
+		if (iFileExtSplit != -1) {
+			sFileName[iFileExtSplit] = '\0';
+		}
+	}
 }

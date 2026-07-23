@@ -1,7 +1,7 @@
 #define DEFAULT_FOLLOW_DISTANCE	250.0
 #define DEFAULT_STARE 0
 
-enum struct OpData_WalkFollow {
+enum struct OpData_Walk_Follow {
 	int iTargetRef;
 	float vecDest[3];
 	float fFollowDistance;
@@ -15,7 +15,7 @@ enum struct OpData_WalkFollow {
 
 // Operation callbacks
 
-OpRet WalkFollow_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_WalkFollow eOpData) {
+OpRet Walk_Follow_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Walk_Follow eOpData) {
 	int iTarget = hInitParams.GetNum("target");
 	if (!iTarget) {
 		return mOp._Abort("missing follow target");
@@ -34,7 +34,7 @@ OpRet WalkFollow_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	return OpRet_Continue;
 }
 
-OpRet WalkFollow_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_WalkFollow eOpData, float fStartTime) {
+OpRet Walk_Follow_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Walk_Follow eOpData, float fStartTime) {
 	int iTarget = EntRefToEntIndex(eOpData.iTargetRef);
 	if (iTarget == INVALID_ENT_REFERENCE || Client_IsValid(iTarget) && !IsPlayerAlive(iTarget)) {
 		return mOp._Abort("target entity is no longer valid");
@@ -69,7 +69,7 @@ OpRet WalkFollow_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_
 	return OpRet_Continue;
 }
 
-OpRet WalkFollow_PreRun(Bot mBot, Operation mOp, OpData_WalkFollow eOpData) {
+OpRet Walk_Follow_PreRun(Bot mBot, Operation mOp, OpData_Walk_Follow eOpData) {
 	if (GetGameTickCount() % 33 != 0 && GetGameTime() > mOp.fStartTime+GetTickInterval()) {
 		return OpRet_Continue;
 	}
