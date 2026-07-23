@@ -139,7 +139,7 @@ OpRet Combat_Chase_Validate(any aIgnore, Operation mOp, ArrayList hSequences, Op
 	Controller mContr = Controller.GetProcessController(mOp);
 
 	char sIdentifier[64];
-	if (!mContr.GetRandomAction(ActionType_Locomotion, sIdentifier, sizeof(sIdentifier))) {
+	if (!mContr.GetRandomAction(ActionType_Move, sIdentifier, sizeof(sIdentifier))) {
 		return OpRet_Passthrough;
 	}
 

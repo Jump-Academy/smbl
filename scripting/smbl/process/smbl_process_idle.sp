@@ -89,7 +89,7 @@ OpRet Idle_Roam_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_I
 	Controller mContr = Controller.GetProcessController(mOp);
 
 	char sIdentifier[64];
-	if (!mContr.GetRandomAction(ActionType_Locomotion, sIdentifier, sizeof(sIdentifier))) {
+	if (!mContr.GetRandomAction(ActionType_Move, sIdentifier, sizeof(sIdentifier))) {
 		return OpRet_Passthrough;
 	}
 
@@ -156,7 +156,7 @@ OpRet Idle_Roam3D_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData
 	Controller mContr = Controller.GetProcessController(mOp);
 
 	char sIdentifier[64];
-	if (!mContr.GetRandomAction(ActionType_Locomotion, sIdentifier, sizeof(sIdentifier))) {
+	if (!mContr.GetRandomAction(ActionType_Move, sIdentifier, sizeof(sIdentifier))) {
 		return OpRet_Passthrough;
 	}
 
