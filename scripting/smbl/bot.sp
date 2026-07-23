@@ -1,3 +1,29 @@
+#include <smbl/controller>
+
+enum struct _Bot {
+	bool bActive;
+	char sDefaultName[MAX_NAME_LENGTH];
+	
+	Controller mContr;
+	OpRef mMainOpRef;
+
+	int iEntityRef;
+	int iTarget;
+	int iButtons;
+
+	float vecMoveTo[3];
+	float vecAimTo[3];
+	float vecAng[3];
+	float vecAngError[3];
+
+	float vecLocalVel[3];
+
+	float vecPID[3];
+	float fIError[2];
+
+	bool bGCFlag;
+}
+
 GlobalForward g_hOnBotAddForward;
 GlobalForward g_hOnBotRemoveForward;
 
@@ -19,8 +45,9 @@ void SetupBotNatives() {
 	CreateNative("Bot.GetDefaultName",			Native_Bot_GetDefaultName);
 	CreateNative("Bot.SetDefaultName",			Native_Bot_SetDefaultName);
 
+	CreateNative("Bot.GetController",			Native_Bot_GetController);
 	CreateNative("Bot.SetController", 			Native_Bot_SetController);
-	CreateNative("Bot.RemoveController", 		Native_RemoveController);
+	CreateNative("Bot.RemoveController", 		Native_Bot_RemoveController);
 
 	CreateNative("Bot.mMainOperation.get", 		Native_Bot_GetMainOp);
 	CreateNative("Bot.mMainOperation.set", 		Native_Bot_SetMainOp);
@@ -51,13 +78,12 @@ void SetupBotNatives() {
 
 	CreateNative("Bot.SwitchWeapon",			Native_Bot_SwitchWeapon);
 
-	CreateNative("Bot.CleanUp",		 			Native_Bot_Cleanup);
-
 	CreateNative("Bot.Instance", 				Native_Bot_Instance);
 	CreateNative("Bot.Destroy", 				Native_Bot_Destroy);
 
 	CreateNative("SMBL_GetBots", 				Native_GetBots);
 	CreateNative("SMBL_GetClientBot", 			Native_GetClientBot);
+	CreateNative("SMBL_GetEntityBot", 			Native_GetEntityBot);
 }
 
 void SetupBotSDKCalls() {
@@ -111,58 +137,75 @@ public int Native_Bot_SetDefaultName(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
+public any Native_Bot_GetController(Handle hPlugin, int iArgC) {
+	Bot mBot = GetNativeCell(1);
+
+	int iThis = view_as<int>(mBot)-1;
+
+	return m_hBots.Get(iThis, _Bot::mContr);
+}
+
 public int Native_Bot_SetController(Handle hPlugin, int iArgC) {
 	Bot mBot = GetNativeCell(1);
 
 	int iThis = view_as<int>(mBot)-1;
 
-	char sController[64];
-	GetNativeString(2, sController, sizeof(sController));
+	char sIdentifier[64];
+	GetNativeString(2, sIdentifier, sizeof(sIdentifier));
 
 	int iEntity = mBot.iEntity;
-	if (!Client_IsValid(iEntity)) {
-		PrintToServer("SMBL currently only supports client controllers");
-		return false;
+
+	if (!iEntity || !IsValidEntity(iEntity)) {
+		ThrowError("Cannot set controller for invalid bot entity");
 	}
 
-	TFClassType iClass = TF2_GetPlayerClass(iEntity);
+	if (1 <= iEntity <= MaxClients) {
+		TFClassType iClassType = TF2_GetPlayerClass(iEntity);
+
+		Controller mPrevContr = m_hBots.Get(iThis, _Bot::mContr);
+		Controller mContr = GetClientController(iClassType, sIdentifier, mBot);
+
+		m_hBots.Set(iThis, mContr, _Bot::mContr);
+
+		Controller.Destroy(mPrevContr);
+
+		char sClassName[32];
+		TF2_GetClassName(iClassType, sClassName, sizeof(sClassName));
+
+		PrintToServer("[SMBL] Set controller for %N: %s (%s)", iEntity, sIdentifier, sClassName);
+
+		return 0;
+	}
+
+	if (!sIdentifier[0]) {
+		ThrowError("Identifier must be specified for non-client bots");
+	}
+
+	Controller mPrevContr = m_hBots.Get(iThis, _Bot::mContr);
+	Controller mContr = GetEntityController(sIdentifier, mBot);
+
+	m_hBots.Set(iThis, mContr, _Bot::mContr);
+
+	Controller.Destroy(mPrevContr);
 
 	char sClassName[32];
-	TF2_GetClassName(iClass, sClassName, sizeof(sClassName));
+	GetEntityClassname(iEntity, sClassName, sizeof(sClassName));
 
-	StringMap hControllers = g_hControllers[view_as<int>(iClass)];
+	PrintToServer("[SMBL] Set controller for entity %d (%s): %s", iEntity, sClassName, sIdentifier);
 
-	_Bot eBot;
-	m_hBots.GetArray(iThis, eBot);
-
-	if (hControllers.GetArray(sController, eBot.eController, sizeof(_Bot::eController))) {
-		m_hBots.SetArray(iThis, eBot);
-		PrintToServer("SMBL controller set to %N: %s (%s)", iEntity, sController, sClassName);
-	} else {
-		PrintToServer("SMBL controller not found: %s (%s)", sController, sClassName);
-		return false;
-	}
-
-	return true;
+	return 0;
 }
 
-public int Native_RemoveController(Handle hPlugin, int iArgC) {
+public int Native_Bot_RemoveController(Handle hPlugin, int iArgC) {
 	Bot mBot = GetNativeCell(1);
 
 	int iThis = view_as<int>(mBot)-1;
 
-	_Bot eBot;
-	m_hBots.GetArray(iThis, eBot);
+	Controller mContr = m_hBots.Get(iThis, _Bot::mContr);
 
-	Controller eController;
-	eBot.eController = eController;
+	m_hBots.Set(iThis, mContr, _Bot::mContr);
 
-	m_hBots.SetArray(iThis, eBot);
-
-	int iEntity = eBot.iEntity;
-	if (Client_IsValid(iEntity)) {
-		PrintToServer("SMBL removed controller from %N", iEntity);
-	}
+	Controller.Destroy(mContr);
 
 	return 0;
 }
@@ -186,14 +229,14 @@ public int Native_Bot_SetMainOp(Handle hPlugin, int iArgC) {
 public int Native_Bot_GetEntity(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 
-	return EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntity));
+	return EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntityRef));
 }
 
 public int Native_Bot_SetEntity(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 	int iEntity = EntIndexToEntRef(GetNativeCell(2));
 
-	m_hBots.Set(iThis, iEntity, _Bot::iEntity);
+	m_hBots.Set(iThis, iEntity, _Bot::iEntityRef);
 
 	return 0;
 }
@@ -232,7 +275,7 @@ public int Native_Bot_SwitchWeapon(Handle hPlugin, int iArgC) {
 	int iThis = GetNativeCell(1)-1;
 	int iWeaponSlot = GetNativeCell(2);
 
-	int iEntity = EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntity));
+	int iEntity = EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntityRef));
 	if (!IsValidEntity(iEntity) || !Client_IsValid(iEntity)) {
 		return -1;
 	}
@@ -367,36 +410,6 @@ public int Native_Bot_SetLocalVelocity(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
-public int Native_Bot_Cleanup(Handle hPlugin, int iArgC) {
-	Bot mBot = GetNativeCell(1);
-	int iThis = view_as<int>(mBot)-1;
-
-	int iEntity = EntRefToEntIndex(m_hBots.Get(iThis, _Bot::iEntity));
-	if (iEntity <= 0) {
-		return 0;
-	}
-
-	Call_StartForward(g_hOnBotRemoveForward);
-	Call_PushCell(mBot);
-	Call_Finish();
-
-	OpRef mMainOpRef = m_hBots.Get(iThis, _Bot::mMainOpRef);
-	Operation mMainOperation = mMainOpRef.ToOperation();
-	if (mMainOperation) {
-		Operation.Destroy(mMainOperation);
-	}
-
-	if (1 <= iEntity <= MaxClients) {
-		if (IsClientInGame(iEntity)) {
-			KickClient(iEntity);
-		}
-	} else {
-		AcceptEntityInput(iEntity, "Kill");
-	}
-
-	return 0;
-}
-
 public any Native_Bot_Instance(Handle hPlugin, int iArgC) {
 	_Bot eBot;
 
@@ -411,24 +424,56 @@ public any Native_Bot_Instance(Handle hPlugin, int iArgC) {
 }
 
 public any Native_Bot_Destroy(Handle hPlugin, int iArgC) {
-	int iBotIdx = GetNativeCell(1)-1;
-	if (iBotIdx < 0 || iBotIdx >= m_hBots.Length) {
+	Bot mBot = GetNativeCellRef(1);
+
+	int iThis = view_as<int>(mBot)-1;
+	if (iThis < 0 || iThis >= m_hBots.Length) {
 		return 0;
 	}
 
-	m_hBots.Set(iBotIdx, true, _Bot::bGCFlag);
+	_Bot eBot;
+	m_hBots.GetArray(iThis, eBot);
+
+	if (eBot.bGCFlag) {
+		return 0;
+	}
+
+	Call_StartForward(g_hOnBotRemoveForward);
+	Call_PushCell(mBot);
+	Call_Finish();
+
+	char sClientKickReason[256];
+	GetNativeString(2, sClientKickReason, sizeof(sClientKickReason));
+
+	if (eBot.mMainOpRef) {
+		Operation mMainOp = eBot.mMainOpRef.ToOperation();
+		Operation.Destroy(mMainOp);
+	}
+
+	if (eBot.mContr) {
+		Controller.Destroy(eBot.mContr);
+	}
+
+	int iIdx = g_hBots.FindValue(mBot);
+	if (iIdx != -1) {
+		g_hBots.Erase(iIdx);
+	}
+
+	m_hBots.Set(iThis, true, _Bot::bGCFlag);
 
 	SetNativeCellRef(1, NULL_BOT);
 
-	if (iBotIdx == m_hBots.Length-1) {
-		for (int i=iBotIdx; i>0; i--) {
+	if (iThis == m_hBots.Length-1) {
+		for (int i=iThis; i>0; i--) {
 			if (!m_hBots.Get(i-1, _Bot::bGCFlag)) {
 				m_hBots.Resize(i);
-				return 0;
+				break;
 			}
 		}
+	}
 
-		m_hBots.Clear();
+	if (eBot.iEntityRef) {
+		DestroyEntity(eBot.iEntityRef, sClientKickReason);
 	}
 
 	return 0;
@@ -437,15 +482,15 @@ public any Native_Bot_Destroy(Handle hPlugin, int iArgC) {
 public int Native_GetBots(Handle hPlugin, int iArgC) {
 	ArrayList hBots = GetNativeCell(1);
 
-	int iBotsLength = g_hBots.Length;
+	int iBotsTotal = g_hBots.Length;
 
 	if (hBots) {
-		for (int i=0; i<iBotsLength; i++) {
+		for (int i=0; i<iBotsTotal; i++) {
 			hBots.Push(g_hBots.Get(i));
 		}
 	}
 
-	return iBotsLength;
+	return iBotsTotal;
 }
 
 public any Native_GetClientBot(Handle hPlugin, int iArgC) {
@@ -457,7 +502,47 @@ public any Native_GetClientBot(Handle hPlugin, int iArgC) {
 	return g_mClientBot[iClient];
 }
 
+public any Native_GetEntityBot(Handle hPlugin, int iArgC) {
+	int iEntity = GetNativeCell(1);
+	if (!IsValidEntity(iEntity)) {
+		ThrowError("Invalid entity index %d", iEntity);
+	}
+
+	if (1 <= iEntity <= MaxClients) {
+		return SMBL_GetClientBot(iEntity);
+	}
+
+	char sKey[6];
+	PackCellToStr(EntIndexToEntRef(iEntity), sKey);
+
+	Bot mBot;
+	if (g_hBotEntities.GetValue(sKey, mBot)) {
+		return mBot;
+	}
+
+	return NULL_BOT;
+}
+
 // Helpers
+
+void DestroyEntity(int iEntityRef, char[] sClientKickReason=NULL_STRING) {
+	int iEntity = EntRefToEntIndex(iEntityRef);
+
+	if (iEntity && IsValidEntity(iEntity)) {
+		if (1 <= iEntity <= MaxClients) {
+			if (IsClientInGame(iEntity)) {
+				KickClient(iEntity, sClientKickReason);
+			}
+		} else {
+			Entity_Kill(iEntity);
+		}
+	}
+}
+
+void SetBotController(Bot mBot, Controller mContr) {
+	int iThis = view_as<int>(mBot)-1;
+	m_hBots.Set(iThis, mContr, _Bot::mContr);
+}
 
 public void AdjustAim(Bot mBot, float vecAng[3]) {
 	int iBotIdx = view_as<int>(mBot)-1;

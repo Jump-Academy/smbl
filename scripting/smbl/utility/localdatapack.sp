@@ -1,3 +1,5 @@
+#include <smbl/utility/localdatapack>
+
 void SetupLocalDataPackNatives() {
 	CreateNative("LocalDataPack.WriteCell",			Native_LocalDataPack_WriteCell);
 	CreateNative("LocalDataPack.WriteFloat",		Native_LocalDataPack_WriteFloat);

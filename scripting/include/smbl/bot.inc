@@ -1,3 +1,5 @@
+#include <smbl/controller>
+
 methodmap Bot {
 	property bool bActive {
 		public native get();
@@ -24,10 +26,10 @@ methodmap Bot {
 		public native set(int iButtons);	
 	}
 
-
 	public native void GetDefaultName(char[] sName, int iMaxLength);
 	public native void SetDefaultName(char[] sName);
 
+	public native Controller GetController();
 	public native bool SetController(char[] sIdentifier);
 	public native void RemoveController();
 
@@ -47,10 +49,18 @@ methodmap Bot {
 
 	public native int SwitchWeapon(int iWeaponSlot);
 
-	public native void CleanUp();
-
 	public static native Bot Instance();
-	public static native void Destroy(Bot mBot);
+
+	/**
+	 * Destroys the bot
+	 *
+	 * If the bot has an entity, it will be killed in the next frame.
+	 * The associated main operation and controller will also be destroyed.
+	 *
+	 * @param mBot Reference to the bot to destroy, which will be set to NULL_BOT on success.
+	 * @param sClientKickReason Optional kick reason for client bots only.
+	 */
+	public static native void Destroy(Bot &mBot, char[] sClientKickReason=NULL_STRING);
 }
 
 #define NULL_BOT	view_as<Bot>(0)

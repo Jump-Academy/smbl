@@ -1,4 +1,7 @@
-#define OP_ALLOC_MAX	16384
+#define OP_ALLOC_LIMIT		4096
+#define OP_UID_LIMIT		1048576
+#define OP_INDEX_BITS		12
+#define OP_INDEX_BITMASK	0xFFF
 
 enum struct _OperationTemplate {
 	char sIdentifier[64];
@@ -35,6 +38,7 @@ enum struct _Operation {
 	bool bLoop;
 	bool bConcurrent;
 	bool bCascadeAborts;
+	bool bSuspendBlocking;
 
 	ArrayList hSequences;	// Sequence
 	ArrayList hSubOpRefs;	// Operation references
@@ -52,6 +56,7 @@ enum struct _Operation {
 	Function fnResume;		// OpFunc
 	Function fnCleanup;		// CleanupFunc
 
+	PrivateForward hValidatedForward;
 	PrivateForward hStateChangeForward;
 	PrivateForward hStepForward;
 	PrivateForward hAbortForward;
@@ -111,6 +116,9 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 						m_hOperations.GetArray(iOpIdx, eOp);
 						return InternalAbort(mBot, mOp, eOp, "initialization aborted (%s)", eOp.sError);
 					}
+					case OpRet_Passthrough: {
+						return OpRet_Passthrough;
+					}
 				}
 			}
 
@@ -126,7 +134,11 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 			Call_Finish();
 		}
 		case OpState_Suspend: {
-			return OpRet_Continue;
+			if (eOp.bSuspendBlocking) {
+				return OpRet_Continue;
+			}
+
+			return OpRet_Passthrough;
 		}
 		case OpState_Abort: {
 			PrintToServer("Attempted to run an aborted Operation.%s(%d)", eOp.sIdentifier, eOp.iUID);
@@ -138,8 +150,9 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 	}
 
 	if (mBot != eOp.mBot) {
-		LogError("Operation.%s(%d) was bound on start to %L and cannot be run on %L.", eOp.sIdentifier, eOp.iUID, eOp.mBot.iEntity, mBot.iEntity);
-		return OpRet_Abort;
+		int iBotIdx = g_hBots.FindValue(mBot);
+		int iOpBotIdx = g_hBots.FindValue(eOp.mBot);
+		return InternalAbort(mBot, mOp, eOp, "operation not bound to bot index %d (expected: %d)", iBotIdx, iOpBotIdx);
 	}
 
 	if (eOp.fnValidate != INVALID_FUNCTION) {
@@ -159,10 +172,23 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 
 		switch (iOpRet) {
 			case OpRet_Bypass: {
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
+
 				return OpRet_Continue;
 			}
 			case OpRet_Restart: {
 				m_hOperations.SetArray(iOpIdx, eOp);
+
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
+
 				mOp.Restart();
 
 				return OpRet_Continue;
@@ -170,6 +196,12 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 			case OpRet_Handled: {
 				eOp.iOpState = OpState_Complete;
 				m_hOperations.SetArray(iOpIdx, eOp);
+
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
 
 				Call_StartForward(eOp.hStateChangeForward);
 				Call_PushCell(mBot);
@@ -181,9 +213,40 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 			}
 			case OpRet_Abort: {
 				m_hOperations.GetArray(iOpIdx, eOp);
-				return InternalAbort(mBot, mOp, eOp, "validation aborted (%s)", eOp.sError);
+				InternalAbort(mBot, mOp, eOp, "validation aborted (%s)", eOp.sError);
+
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
+
+				return OpRet_Abort;
+			}
+			case OpRet_Passthrough: {
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
+
+				return OpRet_Passthrough;
+			}
+			default: {
+				Call_StartForward(eOp.hValidatedForward);
+				Call_PushCell(mBot);
+				Call_PushCell(mOp);
+				Call_PushCell(iOpRet);
+				Call_Finish();
 			}
 		}
+	} else {
+		// No validation function means passing validation by default
+		Call_StartForward(eOp.hValidatedForward);
+		Call_PushCell(mBot);
+		Call_PushCell(mOp);
+		Call_PushCell(OpRet_Continue);
+		Call_Finish();
 	}
 
 	if (eOp.fnPreRun != INVALID_FUNCTION) {
@@ -261,9 +324,7 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 	}
 
 	int iSubOpRefsLength;
-	if (eOp.hSubOpRefs) {
-		iSubOpRefsLength = eOp.hSubOpRefs.Length;
-
+	if (eOp.hSubOpRefs && (iSubOpRefsLength = eOp.hSubOpRefs.Length)) {
 		if (eOp.bConcurrent) {
 			Op iLastOp;
 			if (iSubOpRefsLength) {
@@ -292,13 +353,13 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 
 				OpRet iOpRet = RunOperations(mBot, mSubOp);
 				switch (iOpRet) {
-					case OpRet_Restart: {
-						mSubOp.Restart();
-					}
 					case OpRet_Handled: {
 						Operation.Destroy(mSubOp);
 						eOp.hSubOpRefs.Erase(i--);
 						iSubOpRefsLength--;
+					}
+					case OpRet_Restart: {
+						mSubOp.Restart();
 					}
 					case OpRet_Abort: {
 						if (eOp.bCascadeAborts) {
@@ -315,34 +376,44 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 					}
 				}
 			}
-		} else if (iSubOpRefsLength) {
+		} else {
 			Op iLastOp;
-			if (iSubOpRefsLength) {
-				for (int i=iSubOpRefsLength-1; i>=0 && !iLastOp; i--) {
-					OpRef mSubOpRef = eOp.hSubOpRefs.Get(i);
-					Operation mSubOp = mSubOpRef.ToOperation();
-					if (mSubOp.IsValid()) {
-						iLastOp = mSubOp.iOp;
-					}
+			for (int i=iSubOpRefsLength-1; i>=0 && !iLastOp; i--) {
+				OpRef mSubOpRef = eOp.hSubOpRefs.Get(i);
+				Operation mSubOp = mSubOpRef.ToOperation();
+				if (mSubOp.IsValid()) {
+					iLastOp = mSubOp.iOp;
 				}
 			}
 
-			OpRef mSubOpRef = eOp.hSubOpRefs.Get(0);
-			Operation mSubOp = mSubOpRef.ToOperation();
+			// Allow initial pass for first suboperation
+			bool bPassthrough = true;
 
-			if (!mSubOp.IsValid()) {
-				if (eOp.bCascadeAborts) {
-					return InternalAbort(mBot, mOp, eOp, "cascade abort subop [?/%d]: Invalid suboperation", view_as<int>(iLastOp)+1);
+			for (int i=0; i<iSubOpRefsLength && bPassthrough; i++) {
+				OpRef mSubOpRef = eOp.hSubOpRefs.Get(i);
+				Operation mSubOp = mSubOpRef.ToOperation();
+
+				// One iteration only, unless passthrough explicitly requested 
+				bPassthrough = false;
+
+				if (!mSubOp.IsValid()) {
+					if (eOp.bCascadeAborts) {
+						return InternalAbort(mBot, mOp, eOp, "cascade abort subop [?/%d]: Invalid suboperation", view_as<int>(iLastOp)+1);
+					}
+
+					eOp.hSubOpRefs.Erase(i);
+					iSubOpRefsLength--;
+					break;
 				}
 
-				eOp.hSubOpRefs.Erase(0);
-				iSubOpRefsLength--;
-			} else {
 				OpRet iReturn = RunOperations(mBot, mSubOp);
 				switch (iReturn) {
 					case OpRet_Handled: {
 						Operation.Destroy(mSubOp);
-						eOp.hSubOpRefs.Erase(0);
+						eOp.hSubOpRefs.Erase(i);
+					}
+					case OpRet_Restart: {
+						mSubOp.Restart();
 					}
 					case OpRet_Abort: {
 						if (eOp.bCascadeAborts) {
@@ -353,7 +424,13 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 						}
 
 						Operation.Destroy(mSubOp);
-						eOp.hSubOpRefs.Erase(0);
+
+						eOp.hSubOpRefs.Erase(i);
+						iSubOpRefsLength--;
+					}
+					case OpRet_Passthrough: {
+						bPassthrough = true;
+						continue
 					}
 				}
 			}
@@ -453,6 +530,9 @@ void SetupOperationNatives() {
 	CreateNative("Operation.AddSubOperation",			Native_Operation_AddSubOperation);
 	CreateNative("Operation.ClearSubOperations",		Native_Operation_ClearSubOperations);
 
+	CreateNative("Operation.AddValidatedForward",		Native_Operation_AddValidatedForward);
+	CreateNative("Operation.RemoveValidatedForward",	Native_Operation_RemoveValidatedForward);
+
 	CreateNative("Operation.AddStateChangeForward",		Native_Operation_AddStateChangeForward);
 	CreateNative("Operation.RemoveStateChangeForward",	Native_Operation_RemoveStateChangeForward);
 
@@ -470,7 +550,7 @@ void SetupOperationNatives() {
 	CreateNative("Operation.Run",						Native_Operation_Run);
 	CreateNative("Operation.RunOnce",					Native_Operation_RunOnce);
 
-	CreateNative("Operation.Interrupt",					Native_Operation_Interrupt);
+	CreateNative("Operation.Suspend",					Native_Operation_Suspend);
 	CreateNative("Operation.Resume",					Native_Operation_Resume);
 
 	CreateNative("Operation.Abort",						Native_Operation_Abort);
@@ -692,6 +772,22 @@ public any Native_Operation_ClearSubOperations(Handle hPlugin, int iArgC) {
 	return 0;
 }
 
+public any Native_Operation_AddValidatedForward(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+	Function fnFwd = GetNativeFunction(2);
+
+	PrivateForward hFwd = m_hOperations.Get(view_as<int>(mOp)-1, _Operation::hValidatedForward);
+	return hFwd.AddFunction(hPlugin, fnFwd);
+}
+
+public any Native_Operation_RemoveValidatedForward(Handle hPlugin, int iArgC) {
+	Operation mOp = GetNativeCell(1);
+	Function fnFwd = GetNativeFunction(2);
+
+	PrivateForward hFwd = m_hOperations.Get(view_as<int>(mOp)-1, _Operation::hValidatedForward);
+	return hFwd.RemoveFunction(hPlugin, fnFwd);
+}
+
 public any Native_Operation_AddStateChangeForward(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 	Function fnFwd = GetNativeFunction(2);
@@ -744,7 +840,7 @@ public any Native_Operation_ToOpRef(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 
 	if (mOp.IsValid()) {
-		return view_as<OpRef>(mOp.iUID << 14 | view_as<int>(mOp));
+		return view_as<OpRef>(mOp.iUID << OP_INDEX_BITS | view_as<int>(mOp));
 	}
 
 	return INVALID_OPERATION_REFERENCE;
@@ -765,13 +861,14 @@ public any Native_Operation_Init(Handle hPlugin, int iArgC) {
 	m_hOperations.GetArray(iOpIdx, eOp);
 
 	if (eOp.iOpState == OpState_Run && mBot != eOp.mBot) {
-		LogError("Operation.%s(%d) was bound on start to %L and cannot be run on %L.", eOp.sIdentifier, eOp.iUID, eOp.mBot.iEntity, mBot.iEntity);
-		return OpRet_Abort;
+		int iBotIdx = g_hBots.FindValue(mBot);
+		int iOpBotIdx = g_hBots.FindValue(eOp.mBot);
+		return InternalAbort(mBot, mOp, eOp, "operation not bound to bot index %d (expected: %d)", iBotIdx, iOpBotIdx);
 	}
 
 	switch (eOp.iOpState) {
 		case OpState_Pend: {
-			PrintToServer("RunOp %s: Initializing", eOp.sIdentifier);
+			PrintToServer("Op.Init %s: Initializing with bot index %d", eOp.sIdentifier, g_hBots.FindValue(mBot));
 
 			if (eOp.fnInit != INVALID_FUNCTION) {
 				Call_StartFunction(eOp.hPlugin, eOp.fnInit);
@@ -859,7 +956,7 @@ public any Native_Operation_Run(Handle hPlugin, int iArgC) {
 		ThrowError("Operation is already running on a timer");
 	}
 
-	hTimer = CreateTimer(fInterval, Timer_RunOperations, mOp, iTimerFlags);
+	hTimer = CreateTimer(fInterval, Timer_RunOperations, mOp.ToOpRef(), iTimerFlags);
 
 	m_hOperations.Set(iThis, hTimer, _Operation::hTimer);
 	m_hOperations.Set(iThis, iTimerFlags, _Operation::iTimerFlags);
@@ -902,14 +999,19 @@ public any Native_Operation_RunOnce(Handle hPlugin, int iArgC) {
 	return iOpRet;
 }
 
-public any Native_Operation_Interrupt(Handle hPlugin, int iArgC) {
+public any Native_Operation_Suspend(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
 	if (!mOp.IsValid()) {
 		return false;
 	}
 
+	bool bBlocking = GetNativeCell(2) != 0;
+
 	_Operation eOp;
 	m_hOperations.GetArray(view_as<int>(mOp)-1, eOp, sizeof(_Operation));
+
+	eOp.iOpState = OpState_Suspend;
+	eOp.bSuspendBlocking = bBlocking;
 
 	switch (eOp.iOpState) {
 		case OpState_Run: {
@@ -930,14 +1032,15 @@ public any Native_Operation_Interrupt(Handle hPlugin, int iArgC) {
 					mOp.Abort();
 					return false;
 				}
-
-				eOp.iOpState = OpState_Suspend;
-				m_hOperations.SetArray(view_as<int>(mOp)-1, eOp);
-
-				return true;
 			}
 
-			m_hOperations.Set(view_as<int>(mOp)-1, OpState_Suspend, _Operation::iOpState);
+			m_hOperations.SetArray(view_as<int>(mOp)-1, eOp);
+
+			Call_StartForward(eOp.hStateChangeForward);
+			Call_PushCell(eOp.mBot);
+			Call_PushCell(mOp);
+			Call_PushCell(OpState_Suspend);
+			Call_Finish();
 
 			return true;
 		}
@@ -1179,52 +1282,19 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 	eOperationTemplate.hEventForwards = new StringMap();
 
 	if (m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), false)) {
-		PrintToServer("SMBL registered operation: %s", eOperationTemplate.sIdentifier);
+		PrintToServer("[SMBL] Registered operation: %s", eOperationTemplate.sIdentifier);
 
 		return true;
 	}
 
-	PrintToServer("SMBL failed to register operation (duplicate?): %s", eOperationTemplate.sIdentifier);
+	PrintToServer("[SMBL] Failed to register operation (duplicate?): %s", eOperationTemplate.sIdentifier);
 
 	return false;
 }
 
 public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 	if (IsNativeParamNullString(1)) {
-		StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();
-
-		for (int i=0; i<hOperationTemplatesSnapshot.Length; i++) {
-			char sIdentifier[64];
-			hOperationTemplatesSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
-
-			_OperationTemplate eOperationTemplate;
-			if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate)) && eOperationTemplate.hPlugin == hPlugin) {
-
-				StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
-
-				for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
-					char sEvent[64];
-					hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
-
-					PrivateForward hEventForward;
-					eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
-					delete hEventForward;
-				}
-
-				delete hEventForwardsSnapshot;
-				delete eOperationTemplate.hEventForwards;
-
-				DestroyDeregisteredOperation(sIdentifier);
-
-				delete eOperationTemplate.hInstances;
-				m_hOperationTemplates.Remove(sIdentifier);
-
-				PrintToServer("SMBL deregistered operation: %s", eOperationTemplate.sIdentifier);
-			}
-		}
-
-		delete hOperationTemplatesSnapshot;
-
+		DeregisterPluginOperations(hPlugin);
 		return true;
 	}
 
@@ -1265,6 +1335,10 @@ public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 }
 
 public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
+	if (m_iUID == OP_UID_LIMIT) {
+		ThrowError("Op_Alloc: Reached max UID limit")
+	}
+
 	char sIdentifier[64];
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
@@ -1307,6 +1381,7 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		eOp.fnResume = eOperationTemplate.fnResume;
 		eOp.fnCleanup = eOperationTemplate.fnCleanup;
 
+		eOp.hValidatedForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
 		eOp.hStateChangeForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
 		eOp.hStepForward = new PrivateForward(ET_Hook, Param_Cell, Param_Cell);
 		eOp.hAbortForward = new PrivateForward(ET_Ignore, Param_Cell, Param_Cell, Param_String);
@@ -1314,7 +1389,14 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		Operation mOp;
 		int iFreeIdx = m_hOperations.FindValue(true, _Operation::bGCFlag);
 		if (iFreeIdx != -1) {
-			if (m_hOperations.Length == OP_ALLOC_MAX) {
+			if (m_hOperations.Length == OP_ALLOC_LIMIT) {
+				delete eOp.hSubOpRefs;
+
+				delete eOp.hValidatedForward;
+				delete eOp.hStateChangeForward;
+				delete eOp.hStepForward;
+				delete eOp.hAbortForward;
+
 				ThrowError("Op_Alloc: No free operations");
 			}
 
@@ -1330,7 +1412,7 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		return mOp;
 	}
 
-	LogError("No Operation template found with identifier: %s", sIdentifier);
+	LogError("No Operation templates found with identifier: %s", sIdentifier);
 
 	return NULL_OPERATION;
 }
@@ -1342,8 +1424,6 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 	}
 
 	int iThis = view_as<int>(mOp)-1;
-
-	m_hOperations.Set(iThis, true, _Operation::bGCFlag);
 
 	_Operation eOp;
 	m_hOperations.GetArray(iThis, eOp);
@@ -1362,6 +1442,7 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 	Handle hTimer = m_hOperations.Get(iThis, _Operation::hTimer);
 	delete hTimer;
 
+	delete eOp.hValidatedForward;
 	delete eOp.hStateChangeForward;
 	delete eOp.hStepForward;
 	delete eOp.hAbortForward;
@@ -1393,6 +1474,8 @@ public any Native_Operation_Destroy(Handle hPlugin, int iArgC) {
 	}
 
 	delete eOp.hSequences;
+
+	m_hOperations.Set(iThis, true, _Operation::bGCFlag);
 
 	SetNativeCellRef(1, NULL_OPERATION);
 
@@ -1515,6 +1598,8 @@ public any Native_Operation_DispatchEvent(Handle hPlugin, int iArgC) {
 			_Operation eOp;
 			m_hOperations.GetArray(view_as<int>(mOp)-1, eOp);
 
+// 			PrintToServer("OpTemplate %s is dispatching event %s on Operation.%s(%d, bot=%d)", sIdentifier, sEvent, eOp.sIdentifier, eOp.iUID, eOp.mBot);
+
 			Call_StartForward(hEventForward);
 			Call_PushCell(eOp.mBot);
 			Call_PushCell(mOp);
@@ -1552,8 +1637,8 @@ public any Native_OpRef_ToOperation(Handle hPlugin, int iArgC) {
 		return NULL_OPERATION;
 	}
 
-	Operation mOp = view_as<Operation>(view_as<int>(mOpRef) & 0x3FFF);
-	int iUID = view_as<int>(mOpRef) >> 14;
+	Operation mOp = view_as<Operation>(view_as<int>(mOpRef) & OP_INDEX_BITMASK);
+	int iUID = view_as<int>(mOpRef) >>> OP_INDEX_BITS;
 
 	if (mOp.IsValid() && mOp.iUID == iUID) {
 		return mOp;
@@ -1572,7 +1657,12 @@ public Action Callback_SubOpAborted(Bot mBot, Operation mOp, char[] sError, Oper
 
 // Timers
 
-public Action Timer_RunOperations(Handle hTimer, Operation mOp) {
+public Action Timer_RunOperations(Handle hTimer, OpRef mOpRef) {
+	Operation mOp = mOpRef.ToOperation();
+	if (!mOp.IsValid()) {
+		return Plugin_Stop;
+	}
+
 	int iThis = view_as<int>(mOp)-1;
 	Bot mBot =  m_hOperations.Get(iThis, _Operation::mBot);
 
@@ -1593,6 +1683,42 @@ public Action Timer_RunOperations(Handle hTimer, Operation mOp) {
 
 // Helpers
 
+void DeregisterPluginOperations(Handle hPlugin) {
+	StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();
+
+	char sIdentifier[64];
+	_OperationTemplate eOperationTemplate;
+
+	for (int i=0; i<hOperationTemplatesSnapshot.Length; i++) {
+		hOperationTemplatesSnapshot.GetKey(i, sIdentifier, sizeof(sIdentifier));
+
+		if (m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate)) && eOperationTemplate.hPlugin == hPlugin) {
+			StringMapSnapshot hEventForwardsSnapshot = eOperationTemplate.hEventForwards.Snapshot();
+
+			for (int j=0; j<hEventForwardsSnapshot.Length; j++) {
+				char sEvent[64];
+				hEventForwardsSnapshot.GetKey(j, sEvent, sizeof(sEvent));
+
+				PrivateForward hEventForward;
+				eOperationTemplate.hEventForwards.GetValue(sEvent, hEventForward);
+				delete hEventForward;
+			}
+
+			delete hEventForwardsSnapshot;
+			delete eOperationTemplate.hEventForwards;
+
+			DestroyDeregisteredOperation(sIdentifier);
+
+			delete eOperationTemplate.hInstances;
+			m_hOperationTemplates.Remove(sIdentifier);
+
+			PrintToServer("[SMBL] Deregistered operation: %s", eOperationTemplate.sIdentifier);
+		}
+	}
+
+	delete hOperationTemplatesSnapshot;
+}
+
 void DestroyDeregisteredOperation(char[] sTemplateIdentifier) {
 	char sIdentifier[64];
 	for (int i=0; i<m_hOperations.Length; i++) {
@@ -1606,6 +1732,19 @@ void DestroyDeregisteredOperation(char[] sTemplateIdentifier) {
 			Operation.Destroy(mOp);
 		}
 	}
+}
+
+void DestroyAllOperations() {
+	for (int i=0; i<m_hOperations.Length; i++) {
+		if (m_hOperations.Get(i, _Operation::bGCFlag)) {
+			continue;
+		}
+
+		Operation mOp = view_as<Operation>(i+1);
+		Operation.Destroy(mOp);
+	}
+
+	m_iUID = 0;
 }
 
 OpRet InternalAbort(Bot mBot, Operation mOperation, _Operation eOp, char[] sFormat, any ...) {
@@ -1671,7 +1810,7 @@ void ShowOperationStatus(int iClient) {
 		"smbl running %d bot%s, %d operation%s of %d max (%d allocated)",
 		iBotCount, iBotCount == 1 ? "" : "s",
 		iTotalOps, iTotalOps == 1 ? "" : "s",
-		OP_ALLOC_MAX, m_hOperations.Length
+		OP_ALLOC_LIMIT, m_hOperations.Length
 	);
 
 	for (int i=0; i<hIdentifiers.Length; i++) {

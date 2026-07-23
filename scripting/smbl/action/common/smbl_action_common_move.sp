@@ -41,9 +41,10 @@ int g_iLaser;
 int g_iHalo;
 #endif
 
-#include "common/move/airstrafe.sp"
-#include "common/move/walk.sp"
-#include "common/move/walkfollow.sp"
+#include "move/airstrafe.sp"
+#include "move/walk.sp"
+#include "move/walk_beeline.sp"
+#include "move/walkfollow.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Common Bot Actions Library: Move",
@@ -55,16 +56,8 @@ public Plugin myinfo = {
 
 public void OnPluginStart() {
 	g_hCVGravity = FindConVar("sv_gravity");
-}
 
-public void OnPluginEnd() {
-	Operation.Deregister();
-}
-
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		Setup_Move();
-	}
+	SMBL_NotifyOnStart();
 }
 
 #if defined DEBUG
@@ -74,9 +67,18 @@ public void OnMapStart() {
 }
 #endif
 
+// Library forwards
+
+public void SMBL_OnStart() {
+	Operation.Register("Common.AirStrafe", AirStrafe_Init, AirStrafe_Validate);
+	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
+	Operation.Register("Common.Walk.Beeline", Walk_Beeline_Init, Walk_Beeline_Validate);
+	Operation.Register("Common.Walk.Follow", Walk_Follow_Init, Walk_Follow_Validate, Walk_Follow_PreRun, _, _, _, _, true, true, false, false);
+}
+
 // Custom callbacks
 
-public float CostFunc_WalkDrop(NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic) {
+public float CostFunc_WalkDrop(NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic) {
 	if (iAttachmentFlags & (FL_ATTACH_GROUND | FL_ATTACH_DROP) || bHeuristic) {
 		return GetVectorDistance(vecPosA, vecPosB);
 	}
@@ -93,12 +95,6 @@ public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, TFTeam 
 }
 
 // Helpers
-
-void Setup_Move() {
-	Operation.Register("Common.AirStrafe", AirStrafe_Init, AirStrafe_Validate);
-	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
-	Operation.Register("Common.Walk.Follow", WalkFollow_Init, WalkFollow_Validate, WalkFollow_PreRun, _, _, _, _, true, true, false, false);
-}
 
 float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
 	float fDelta0 = vecB[0] - vecA[0];

@@ -24,7 +24,7 @@
 
 ConVar g_hCVGravity;
 
-#include "soldier/attack/marketgarden.sp"
+#include "attack/marketgarden.sp"
 
 enum struct OpData_MarketGarden {
 	int iTargetEntRef;
@@ -44,19 +44,11 @@ public void OnPluginStart() {
 
 	HookEvent("rocket_jump", Event_RocketJump, EventHookMode_Post);
 	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
+
+	SMBL_NotifyOnStart();
 }
 
-public void OnPluginEnd() {
-	Operation.Deregister();
-}
-
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		Setup_Attacks();
-	}
-}
-
-void Setup_Attacks() {
+public void SMBL_OnStart() {
 	Operation.Register("Soldier.MarketGarden.Swing", MarketGarden_Swing_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Swing_Cleanup);
 
 	// Auto dispatch wrapper
@@ -71,11 +63,15 @@ void Setup_Attacks() {
 
 // Operation callbacks
 
-OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_MarketGarden eOpData) {
-	int iEntity = mBot.iEntity;
+OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_MarketGarden eOpData, bool bConfigureOnly) {
+	int iEntity;
 
-	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
-		return mOp._Abort("unsupported TFClassType");
+	if (!bConfigureOnly) {
+		iEntity = mBot.iEntity;
+
+		if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
+			return mOp._Abort("unsupported TFClassType");
+		}
 	}
 
 	if (!hInitParams.JumpToKey("target")) {
@@ -89,16 +85,28 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 		return mOp._Abort("invalid target entity");
 	}
 
+	PrintToServer("MG target is %N", iTargetEntity);
+
 	eOpData.iTargetEntRef = EntRefToEntIndex(iTargetEntity);
 
-	float vecPos[3];
-	Entity_GetAbsOrigin(iEntity, vecPos);
+	float vecOrigin[3];
+
+	if (hInitParams.JumpToKey("origin")) {
+		hInitParams.GetVector(NULL_STRING, vecOrigin);
+		hInitParams.GoBack();
+	} else if (bConfigureOnly) {
+		return mOp._Abort("missing origin init parameter");
+	} else {
+		Entity_GetAbsOrigin(iEntity, vecOrigin);
+	}
 
 	float vecTargetPos[3];
 	Entity_GetAbsOrigin(iTargetEntity, vecTargetPos);
 
+	PrintToServer("origin: [%.1f, %.1f, %.1f]\ttarget: [%.1f, %.1f, %.1f", vecOrigin[0], vecOrigin[1], vecOrigin[2], vecTargetPos[0], vecTargetPos[1], vecTargetPos[2]);
+
 	float vecDiff[3];
-	SubtractVectors(vecTargetPos, vecPos, vecDiff);
+	SubtractVectors(vecTargetPos, vecOrigin, vecDiff);
 
 	float fDist2D = SquareRoot(vecDiff[0]*vecDiff[0] + vecDiff[1]*vecDiff[1]);
 
@@ -113,33 +121,35 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 
 	float fFollowZOffset = bStandingLaunch ? 0.25*vecMaxs[2] : 1.2*vecMaxs[2];
 
-	float fTimestamp = GetEngineTime();
+	KeyValues hTestInitParams = new KeyValues(OP_INIT_PARAM);
+	hTestInitParams.SetVector("origin", vecOrigin);
+	hTestInitParams.SetVector("destination", vecTargetPos);
+	hTestInitParams.SetNum("follow", iTargetEntity);
+	hTestInitParams.SetFloat("follow_distance", 25.0);
+	hTestInitParams.SetFloat("follow_zoffset", fFollowZOffset);
+	hTestInitParams.SetNum("standing_launch", bStandingLaunch);
+	hTestInitParams.SetFloat("proximity", 15.0);
+
+	if (!bStandingLaunch) {
+		hTestInitParams.SetNum("decelerate", true);
+		hTestInitParams.SetNum("airbrake", true);
+	}
+
+	if (!Operation.Configure("Soldier.RocketJump", hTestInitParams)) {
+		delete hTestInitParams;
+		PrintToServer("target not reachable with rocket jump");
+		return mOp._Abort("target not reachable with rocket jump");
+	}
+
+	if (bConfigureOnly) {
+		return OpRet_Continue;
+	}
 
 	KeyValues hRocketJumpInitParams;
 	Operation mRocketJumpOp = Operation.Instance("Soldier.RocketJump", hRocketJumpInitParams);
-	hRocketJumpInitParams.SetNum("follow", iTargetEntity);
-	hRocketJumpInitParams.SetFloat("follow_distance", 25.0);
-	hRocketJumpInitParams.SetFloat("follow_zoffset", fFollowZOffset);
-	hRocketJumpInitParams.SetNum("standing_launch", bStandingLaunch);
-	hRocketJumpInitParams.SetFloat("proximity", 15.0);
 
-	if (!bStandingLaunch) {
-		hRocketJumpInitParams.SetNum("decelerate", true);
-		hRocketJumpInitParams.SetNum("airbrake", true);
-	}
-
-	if (mRocketJumpOp.Init(mBot) == OpRet_Abort) {
-		char sError[256];
-		mRocketJumpOp.GetError(sError, sizeof(sError));
-
-		Operation.Destroy(mRocketJumpOp);
-
-		PrintToServer("MG rocket jump init failed after %.3f ms", 1000*(GetEngineTime()-fTimestamp));
-
-		return mOp._Abort(sError);
-	}
-
-	PrintToServer("MG rocket jump init completed in %.3f ms", 1000*(GetEngineTime()-fTimestamp));
+	hRocketJumpInitParams.Import(hTestInitParams);
+	delete hTestInitParams;
 
 	mRocketJumpOp.AddStateChangeForward(OpStateChangeFwd_RocketJumpLaunched);
 

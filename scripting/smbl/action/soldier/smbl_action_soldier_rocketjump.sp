@@ -9,6 +9,7 @@
 #include <smlib/math>
 
 #include <smbl>
+#include <smbl/nav_mesh>
 
 #define NODE_PROXIMITY	500.0
 
@@ -62,9 +63,10 @@ enum struct OpData_RocketJump {
 
 ConVar g_hCVGravity;
 
-#include "soldier/rocketjump/wallclimb.sp"
-#include "soldier/rocketjump/groundshot_back.sp"
-#include "soldier/rocketjump/groundshot_down.sp"
+#include "rocketjump/wallclimb.sp"
+#include "rocketjump/wallclimb_adjacent.sp"
+#include "rocketjump/groundshot_back.sp"
+#include "rocketjump/groundshot_down.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Soldier Actions Library: Rocket Jump",
@@ -79,16 +81,8 @@ int g_iHalo;
 
 public void OnPluginStart() {
 	g_hCVGravity = FindConVar("sv_gravity");
-}
 
-public void OnPluginEnd() {
-	Operation.Deregister();
-}
-
-public void OnLibraryAdded(const char[] sName) {
-	if (StrEqual(sName, "smbl")) {
-		Setup_RocketJump();
-	}
+	SMBL_NotifyOnStart();
 }
 
 public void OnMapStart() {
@@ -96,8 +90,11 @@ public void OnMapStart() {
 	g_iHalo = PrecacheModel("materials/sprites/halo01.vmt");
 }
 
-void Setup_RocketJump() {
+// Library forwards
+
+public void SMBL_OnStart() {
 	Operation.Register("Soldier.WallClimb", WallClimb_Init, _, _, _, UnsupportedFunction, _, WallClimb_Cleanup);
+	Operation.Register("Soldier.WallClimbAdjacent", WallClimbAdjacent_Init, _, _, _, UnsupportedFunction, _, WallClimbAdjacent_Cleanup);
 
 	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Back], GroundShot_Back_Init);
 	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Down], GroundShot_Down_Init);
