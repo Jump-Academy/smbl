@@ -18,6 +18,8 @@ public SharedPlugin __pl_smbl_nav_mesh = {
 
 #if !defined REQUIRE_PLUGIN
 public void __pl_smbl_nav_mesh_SetNTVOptional() {
+	MarkNativeAsOptional("NavNode.iIndex.get");
+	MarkNativeAsOptional("NavNode.iIndex.set");
 	MarkNativeAsOptional("NavNode.iVertices.get");
 	MarkNativeAsOptional("NavNode.iVertices.set");
 	MarkNativeAsOptional("NavNode.GetOrigin");
@@ -54,12 +56,16 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavMesh.GetNodesInRange");
 	MarkNativeAsOptional("NavMesh.GetNearestNodeInRange");
 	MarkNativeAsOptional("NavMesh.UpdateIndex");
+	MarkNativeAsOptional("NavMesh.LookupCache");
 
 	MarkNativeAsOptional("NavMesh.Instance");
 	MarkNativeAsOptional("NavMesh.Destroy");
 
 	MarkNativeAsOptional("NavMesh.LoadNavFile");
 	MarkNativeAsOptional("NavMesh.SaveNavFile");
+
+	MarkNativeAsOptional("NavMesh.SetCacheable");
+	MarkNativeAsOptional("NavMesh.RemoveCacheable");
 
 	MarkNativeAsOptional("Navigation.FindShortestPath");
 	MarkNativeAsOptional("Navigation.CheckLineOfSight");
@@ -99,8 +105,14 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 
 #define NaN					view_as<float>(0x7FC00000)
 #define POSITIVE_INFINITY	view_as<float>(0x7F800000)
+#define NEGATIVE_INFINITY	view_as<float>(0xFF800000)
 
 methodmap NavNode {
+	property int iIndex {
+		public native get();
+		public native set(int iIndex);
+	}
+
 	property int iVertices {
 		public native get();
 		public native set(int iVertices);
@@ -166,12 +178,19 @@ methodmap NavMesh {
 	public native NavNode GetNearestNodeInRange(float vecPoint[3], float fRadius=POSITIVE_INFINITY, bool bCheckHulls=false, float fSlack=0.0);
 	public native void UpdateIndex();
 
+	public native bool LookupCache(char[] sBucketName, NavNode mNodeA, NavNode mNodeB, KeyValues hKVData=null);
+
 	public static native NavMesh Instance();
 	public static native void Destroy(NavMesh mNavMesh);
 
 	public static native NavMesh LoadNavFile(char[] sFilePath);
 	public static native bool SaveNavFile(NavMesh mNavMesh, char[] sFilePath);
+
+	public static native bool RegisterCache(char[] sBucketName, Function fnNavCacheableFunc);
+	public static native bool DeregisterCache(char[] sBucketName=NULL_STRING);
 }
+
+typedef NavCacheableFunc = function bool (NavNode mNodeA, NavNode mNodeB, KeyValues hKVData);
 
 enum PathMode {
 	PathMode_Normal,
@@ -179,6 +198,10 @@ enum PathMode {
 }
 
 methodmap NavPath {
+	property NavMesh mNavMesh {
+		public native get();
+	}
+
 	property int iLength {
 		public native get();
 	}
@@ -198,6 +221,7 @@ methodmap Navigation {
 	 * Finds the shortest path from a start node to a goal using A* graph traversal
 	 * If end node is not specified as the goal, this will run breadth-first search (no heuristic) unless the cost function marks a goal.
 	 *
+	 * @param mNavMesh			Navigation mesh to be searched
 	 * @param mStartNode		Node to start the search from
 	 * @param mEndNode			Node to end search (or NULL_NAV_NODE for run BFS)
 	 * @param fnCostFunction	Cost function for the graph
@@ -207,7 +231,7 @@ methodmap Navigation {
 	 * @param vecEndPos			Optional position within end node
 	 * @return					Navigation path (or NULL_NAV_PATH if goal is unreachable), must be destroyed with NavPath.Destroy().
 	 **/
-	public static native NavPath FindShortestPath(NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
+	public static native NavPath FindShortestPath(NavMesh mNavMesh, NavNode mStartNode, NavNode mEndNode, CostFunc fnCostFunction, LocalDataPackCleanupFunc fnCleanup=INVALID_FUNCTION, any aData=0, float vecStartPos[3]={NaN, NaN, NaN}, float vecEndPos[3]={NaN, NaN, NaN});
 }
 
 /**
@@ -217,6 +241,7 @@ typeset CostFunc {
 	/**
 	 * Called to calculate the cost or heuristic between two nodes
 	 *
+	 * @param mNavMesh			Navigation mesh being searched
 	 * @param mNodeA			Source node
 	 * @param iEdgeA			Exit edge from source node
 	 * @param mNodeB			Destination node
@@ -232,12 +257,32 @@ typeset CostFunc {
 	 * @param bMarkGoalNode		Marks destination node as a goal node to terminate the search
 	 * @param bMarkGoalEdge		Marks source node exit edge as a candidate goal edge (search ends with the last node as the source node with a focal point on the edge goal, if the path from the search start node to this goal edge has the lowest cost of all paths leading to goal edge candidates)
 	 */
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData);
-	function float (NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData);
+	function float (NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNodeB, int iEdgeB, int iAttachmentFlags, float vecPosA[3], float vecPosB[3], bool bNodeAStart, bool bNodeBGoal, bool bHeuristic, any aData, LocalDataPack mEdgeData, bool &bMarkGoalNode, bool &bMarkGoalEdge);
 }
 
 native bool SMBL_RegisterNavMesh(char[] sIdentifier, NavMesh mNavMesh);
 native bool SMBL_DeregisterNavMesh(char[] sIdentifier, bool bDestroy=false);
 native void SMBL_DeregisterAllNavMeshes(bool bDestroy=false);
 native NavMesh SMBL_GetNavMesh(char[] sIdentifier);
+
+/**
+ * Returns whether the navigation mesh is ready to accept caching.
+ * @return True if ready, false if setting up
+ */
+native bool SMBL_NavMesh_IsCacheReady();
+
+/**
+ * Request the navigation mesh library to notify the plugin it is ready to accept caching via a call to SMBL_NavMesh_OnCache().
+ * Use this to request a call to the forward if this plugin is late loaded, such as in OnPluginStart().
+ * Calling this in OnPluginStart() will not cause a duplicate call to the SMBL_NavMesh_OnCache() forward.
+ */
+native void SMBL_NavMesh_NotifyOnCache();
+
+/**
+ * Called when the navigation mesh library is ready to accept caching.
+ * This is normally called automatically after OnAllPluginsLoaded() but plugins can request a call
+ * via SMBL_NavMesh_NotifyOnCache() in case of late-loading.
+ */
+forward void SMBL_NavMesh_OnCache();

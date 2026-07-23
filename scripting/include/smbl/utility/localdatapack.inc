@@ -1,3 +1,8 @@
+#if defined _SMBL_LOCALDATAPACK_included
+	#endinput
+#endif
+#define _SMBL_LOCALDATAPACK_included
+
 /**
  * Wrappers for SourceMod's built-in DataPack to work around its quirky
  * cross-plugin handle passing ownership and closing restrictions

@@ -109,7 +109,7 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	}
 
 	if (mStartNode && mEndNode) {
-		NavPath mNavPath = Navigation.FindShortestPath(mStartNode, mEndNode, CostFunc_WalkDrop, _, _, vecStart, vecEnd);
+		NavPath mNavPath = Navigation.FindShortestPath(mNavMesh, mStartNode, mEndNode, CostFunc_WalkDrop, _, _, vecStart, vecEnd);
 		if (!mNavPath) {
 			return mOp._Abort("end node is not reachable from start");
 		}
