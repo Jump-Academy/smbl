@@ -1186,8 +1186,15 @@ public Action Timer_CleanupMsgBox(Handle hTimer, StringMap hMsgBoxes) {
 // Helpers
 
 void RegisterControllerOperations() {
-	Operation.Register(PROCESSOR_OPERATION, _, _, _, _, _, _, _, true, true, false, false);
-	Operation.Register(PROCESS_NOOP, _, Process_NoOp_Validate, _, _, _, _, _, true);
+	Operation.Register(PROCESSOR_OPERATION)
+		.Loop(true)
+		.SubOps(true)
+		.Concurrent(false)
+		.CascadeAborts(false);
+
+	Operation.Register(PROCESS_NOOP)
+		.Validate(Process_NoOp_Validate)
+		.Loop(true);
 }
 
 void DeregisterPluginControllers(Handle hPlugin) {

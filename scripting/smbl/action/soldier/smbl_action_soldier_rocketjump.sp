@@ -93,17 +93,34 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Soldier.WallClimb", WallClimb_Init, _, _, _, UnsupportedFunction, _, WallClimb_Cleanup);
-	Operation.Register("Soldier.WallClimbAdjacent", WallClimbAdjacent_Init, _, _, _, UnsupportedFunction, _, WallClimbAdjacent_Cleanup);
+	Operation.Register("Soldier.WallClimb")
+		.Init(WallClimb_Init)
+		.Suspend(UnsupportedFunction)
+		.Cleanup(WallClimb_Cleanup);
 
-	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Back], GroundShot_Back_Init);
-	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Down], GroundShot_Down_Init);
+	Operation.Register("Soldier.WallClimbAdjacent")
+		.Init(WallClimbAdjacent_Init)
+		.Suspend(UnsupportedFunction)
+		.Cleanup(WallClimbAdjacent_Cleanup);
+
+	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Back])
+		.Init(GroundShot_Back_Init);
+
+	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Down])
+		.Init(GroundShot_Down_Init);
 
 	// Auto dispatch wrapper
 #if defined DEBUG
-	Operation.Register("Soldier.RocketJump", RocketJump_Init, _, _, RocketJump_PostRun, UnsupportedFunction, _, _, false, true);
+	Operation.Register("Soldier.RocketJump")
+		.Init(RocketJump_Init)
+		.PostRun(RocketJump_PostRun)
+		.Suspend(UnsupportedFunction)
+		.SubOps(true);
 #else
-	Operation.Register("Soldier.RocketJump", RocketJump_Init, _, _, _, UnsupportedFunction, _, _, false, true);
+	Operation.Register("Soldier.RocketJump")
+		.Init(RocketJump_Init)
+		.Suspend(UnsupportedFunction)
+		.SubOps(true);
 #endif
 }
 

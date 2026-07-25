@@ -49,10 +49,18 @@ public void OnPluginStart() {
 }
 
 public void SMBL_OnStart() {
-	Operation.Register("Soldier.MarketGarden.Swing", MarketGarden_Swing_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Swing_Cleanup);
+	Operation.Register("Soldier.MarketGarden.Swing")
+		.Init(MarketGarden_Swing_Init)
+		.Suspend(UnsupportedFunction)
+		.Cleanup(MarketGarden_Swing_Cleanup);
 
 	// Auto dispatch wrapper
-	Operation.Register("Soldier.MarketGarden", MarketGarden_Init, _, _, _, UnsupportedFunction, _, MarketGarden_Cleanup, false, true, true);
+	Operation.Register("Soldier.MarketGarden")
+		.Init(MarketGarden_Init)
+		.Suspend(UnsupportedFunction)
+		.Cleanup(MarketGarden_Cleanup)
+		.SubOps(true)
+		.Concurrent(true);
 
 	// Internal use
 	Operation.AddEventListener("Soldier.MarketGarden", ".player_death", OpEventFwd_CheckTargetDeath);

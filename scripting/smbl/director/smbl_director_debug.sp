@@ -154,7 +154,8 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float ve
 
 public void SMBL_OnStart() {
 	SMBL_RegisterDirector(DIRECTOR_ALIAS, DirectorPriority_Admin, Director_Think);
-	Operation.Register(MANUAL_OPERATION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, false, true, false, true);
+	Operation.Register(MANUAL_OPERATION)
+		.SubOps(true);
 }
 
 public void SMBL_OnBotAdd(Bot mBot) {

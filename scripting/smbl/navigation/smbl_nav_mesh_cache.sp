@@ -466,8 +466,14 @@ public void RequestFrameCallback_Cache(any aData) {
 // Helpers
 
 void Setup_CacheOperation() {
-	Operation.Register("NavMesh.Cache.Queue", _, _, _, _, _, _, Cache_Queue_Cleanup, false, true, false, false);
-	Operation.Register("NavMesh.Cache.ProcessCacheable", Cache_ProcessCacheable_Init, _, _, _, _, _, Cache_ProcessCacheable_Cleanup);
+	Operation.Register("NavMesh.Cache.Queue")
+		.Cleanup(Cache_Queue_Cleanup)
+		.SubOps(true)
+		.CascadeAborts(false);
+
+	Operation.Register("NavMesh.Cache.ProcessCacheable")
+		.Init(Cache_ProcessCacheable_Init)
+		.Cleanup(Cache_ProcessCacheable_Cleanup);
 
 	RequestFrame(RequestFrameCallback_Cache);
 }

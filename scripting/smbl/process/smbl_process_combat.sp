@@ -31,8 +31,15 @@ public void OnPluginStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Process.Combat.Attack", Combat_Attack_Init, Combat_Attack_Validate, _, _, _, _, _, true);
-	Operation.Register("Process.Combat.Chase", Combat_Chase_Init, Combat_Chase_Validate, _, _, _, _, _, true);
+	Operation.Register("Process.Combat.Attack")
+		.Init(Combat_Attack_Init)
+		.Validate(Combat_Attack_Validate)
+		.Loop(true);
+
+	Operation.Register("Process.Combat.Chase")
+		.Init(Combat_Chase_Init)
+		.Validate(Combat_Chase_Validate)
+		.Loop(true);
 }
 
 // Attack

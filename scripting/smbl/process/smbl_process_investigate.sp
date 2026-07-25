@@ -25,8 +25,17 @@ public void OnPluginStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register(DAMAGE_PROCESS_IDENTIFIER, Investigate_Damage_Init, Investigate_Damage_Validate, _, _, _, _, Investigate_Damage_Cleanup, true);
-	Operation.Register(TOUCH_PROCESS_IDENTIFIER, Investigate_Touch_Init, Investigate_Touch_Validate, _, _, _, _, Investigate_Touch_Cleanup, true);
+	Operation.Register(DAMAGE_PROCESS_IDENTIFIER)
+		.Init(Investigate_Damage_Init)
+		.Validate(Investigate_Damage_Validate)
+		.Cleanup(Investigate_Damage_Cleanup)
+		.Loop(true);
+
+	Operation.Register(TOUCH_PROCESS_IDENTIFIER)
+		.Init(Investigate_Touch_Init)
+		.Validate(Investigate_Touch_Validate)
+		.Cleanup(Investigate_Touch_Cleanup)
+		.Loop(true);
 }
 
 // Investigate Damage

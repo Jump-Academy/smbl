@@ -76,7 +76,27 @@ stock OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
 }
 
 #define NULL_OPERATION	view_as<Operation>(0)
+#define INVALID_OPERATION_TEMPLATE	view_as<OperationTemplate>(0)
 #define INVALID_OPERATION_REFERENCE	view_as<OpRef>(-1)
+
+methodmap OperationTemplate {
+	property bool bFinalized {
+		public native get();
+	}
+
+	public native OperationTemplate Init(OpInitFunc fnInit);
+	public native OperationTemplate Validate(OpValidateFunc fnValidate);
+	public native OperationTemplate PreRun(OpFunc fnPreRun);
+	public native OperationTemplate PostRun(OpFunc fnPostRun);
+	public native OperationTemplate Suspend(OpFunc fnSuspend);
+	public native OperationTemplate Resume(OpFunc fnResume);
+	public native OperationTemplate Cleanup(OpCleanupFunc fnCleanup);
+	public native OperationTemplate Loop(bool bLoop);
+	public native OperationTemplate SubOps(bool bHasSubOps);
+	public native OperationTemplate Concurrent(bool bConcurrent);
+	public native OperationTemplate CascadeAborts(bool bCascadeAborts);
+	public native OperationTemplate Finalize();
+}
 
 methodmap Operation {
 	property Op iOp {
@@ -195,7 +215,7 @@ methodmap Operation {
 
 	public native OpRef ToOpRef();
 
-	public static native void Register(char[] sIdentifier, OpInitFunc fnInit=INVALID_FUNCTION, OpValidateFunc fnValidate=INVALID_FUNCTION, OpFunc fnPreRun=INVALID_FUNCTION, OpFunc fnPostRun=INVALID_FUNCTION, OpFunc fnSuspend=INVALID_FUNCTION, OpFunc fnResume=INVALID_FUNCTION, OpCleanupFunc fnCleanup=INVALID_FUNCTION, bool bLoop=false, bool bHasSubOps=false, bool bConcurrent=false, bool bCascadeAborts=true);
+	public static native OperationTemplate Register(char[] sIdentifier);
 	public static native bool Deregister(char[] sIdentifier=NULL_STRING);
 
 	public static native Operation Instance(char[] sIdentifier, KeyValues &hInitParms=null, Op iOp=view_as<Op>(0));

@@ -30,10 +30,20 @@ public void OnPluginStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Process.Idle.LookAround", Idle_LookAround_Init, Idle_LookAround_Validate, _, _, _, _, _, true);
+	Operation.Register("Process.Idle.LookAround")
+		.Init(Idle_LookAround_Init)
+		.Validate(Idle_LookAround_Validate)
+		.Loop(true);
 
-	Operation.Register("Process.Idle.Roam", Idle_Roam_Init, Idle_Roam_Validate, _, _, _, _, _, true);
-	Operation.Register("Process.Idle.Roam3D", Idle_Roam_Init, Idle_Roam3D_Validate, _, _, _, _, _, true);
+	Operation.Register("Process.Idle.Roam")
+		.Init(Idle_Roam_Init)
+		.Validate(Idle_Roam_Validate)
+		.Loop(true);
+
+	Operation.Register("Process.Idle.Roam3D")
+		.Init(Idle_Roam_Init)
+		.Validate(Idle_Roam3D_Validate)
+		.Loop(true);
 }
 
 // Look Around

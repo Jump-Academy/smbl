@@ -124,7 +124,11 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] sError, int sErr
 }
 
 public void OnAllPluginsLoaded() {
-	Operation.Register(MAIN_OPERATION, _, _, _, _, _, _, _, true, true, true, false);
+	Operation.Register(MAIN_OPERATION)
+		.Loop(true)
+		.SubOps(true)
+		.Concurrent(true)
+		.CascadeAborts(false);
 
 	RegisterControllerOperations();
 

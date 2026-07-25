@@ -32,5 +32,6 @@ public void OnLibraryAdded(const char[] sName) {
 // Helpers
 
 void Setup_Utilities() {
-	Operation.Register("Utility.Parameterize.ByPosition", Parameterize_ByPosition_Init);
+	Operation.Register("Utility.Parameterize.ByPosition")
+		.Init(Parameterize_ByPosition_Init);
 }
