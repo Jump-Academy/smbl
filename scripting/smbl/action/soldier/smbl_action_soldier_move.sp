@@ -71,14 +71,12 @@ public void OnMapStart() {
 
 public void SMBL_OnStart() {
 	// Auto dispatch wrapper
-	Operation.Register("Soldier.Move3D", Move3D_Init, Move3D_Validate, _, _, UnsupportedFunction, _, Move3D_Cleanup, _, true);
-
-	//Operation.Register("Soldier.Move3D")
-	//	.Init(Move3D_Init)
-	//	.Validate(Move3D_Validate)
-	//	.Resume(UnsupportedFunction)
-	//	.Cleanup(Move3D_Cleanup)
-	//	.SubOps(true);
+	Operation.Register("Soldier.Move3D")
+		.Init(Move3D_Init)
+		.Validate(Move3D_Validate)
+		.Suspend(UnsupportedFunction)
+		.Cleanup(Move3D_Cleanup)
+		.SubOps(true);
 }
 
 public void SMBL_NavMesh_OnCache() {

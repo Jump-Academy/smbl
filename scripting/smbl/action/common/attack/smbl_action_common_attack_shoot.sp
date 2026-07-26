@@ -36,7 +36,12 @@ public void OnPluginStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Common.Attack.Shoot", Shoot_Init, Shoot_Validate, Shoot_PreRun, _, _, _, Shoot_Cleanup, true);
+	Operation.Register("Common.Attack.Shoot")
+		.Init(Shoot_Init)
+		.Validate(Shoot_Validate)
+		.PreRun(Shoot_PreRun)
+		.Cleanup(Shoot_Cleanup)
+		.Loop(true);
 }
 
 // Operation callbacks

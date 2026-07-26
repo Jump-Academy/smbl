@@ -32,9 +32,20 @@ public void OnPluginStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Common.Idle.LookAround", _, _, Idle_LookAround_PreRun, _, _, _, _, true);
-	Operation.Register("Common.Idle.LookAt", Idle_LookAt_Init, _, Idle_LookAt_PreRun, _, _, _, _, true);
-	//Operation.Register("Common.Idle.LookAttention", Idle_LookAround_Init, _, Idle_LookAround_PreRun, _, _, _, Idle_LookAround_Cleanup, true);
+	Operation.Register("Common.Idle.LookAround")
+		.PreRun(Idle_LookAround_PreRun)
+		.Loop(true);
+
+	Operation.Register("Common.Idle.LookAt")
+		.Init(Idle_LookAt_Init)
+		.PreRun(Idle_LookAt_PreRun)
+		.Loop(true);
+
+// 	Operation.Register("Common.Idle.LookAttention")
+// 		.Init(Idle_LookAround_Init)
+// 		.PreRun(Idle_LookAround_PreRun)
+// 		.Cleanup(Idle_LookAround_Cleanup)
+// 		.Loop(true);
 }
 
 // Helpers

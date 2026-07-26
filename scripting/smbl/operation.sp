@@ -1,3 +1,5 @@
+#define OP_IDENT_MAX_LENGTH	256
+
 #define OP_ALLOC_LIMIT		4096
 #define OP_UID_LIMIT		1048576
 #define OP_INDEX_BITS		12
@@ -6,6 +8,7 @@
 enum struct _OperationTemplate {
 	char sIdentifier[64];
 	Handle hPlugin;
+	bool bFinalized;
 
 	bool bLoop;
 	bool bHasSubOps;
@@ -68,6 +71,7 @@ enum struct _Operation {
 	bool bGCFlag;
 }
 
+static ArrayList m_hOperationTemplateNames;
 static StringMap m_hOperationTemplates;
 static ArrayList m_hOperations;
 
@@ -505,8 +509,24 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 // Natives
 
 void SetupOperationNatives() {
+	m_hOperationTemplateNames = new ArrayList(ByteCountToCells(OP_IDENT_MAX_LENGTH));
 	m_hOperationTemplates = new StringMap();
 	m_hOperations = new ArrayList(sizeof(_Operation));
+
+	CreateNative("OperationTemplate.bFinalized.get",	Native_OperationTemplate_GetFinalized);
+
+	CreateNative("OperationTemplate.Init",				Native_OperationTemplate_Init);
+	CreateNative("OperationTemplate.Validate",			Native_OperationTemplate_Validate);
+	CreateNative("OperationTemplate.PreRun",			Native_OperationTemplate_PreRun);
+	CreateNative("OperationTemplate.PostRun",			Native_OperationTemplate_PostRun);
+	CreateNative("OperationTemplate.Suspend",			Native_OperationTemplate_Suspend);
+	CreateNative("OperationTemplate.Resume",			Native_OperationTemplate_Resume);
+	CreateNative("OperationTemplate.Cleanup",			Native_OperationTemplate_Cleanup);
+	CreateNative("OperationTemplate.Loop",				Native_OperationTemplate_Loop);
+	CreateNative("OperationTemplate.SubOps",			Native_OperationTemplate_SubOps);
+	CreateNative("OperationTemplate.Concurrent",		Native_OperationTemplate_Concurrent);
+	CreateNative("OperationTemplate.CascadeAborts",		Native_OperationTemplate_CascadeAborts);
+	CreateNative("OperationTemplate.Finalize",			Native_OperationTemplate_Finalize);
 
 	CreateNative("Operation.iOp.get",					Native_Operation_GetOp);
 	CreateNative("Operation.iOp.set",					Native_Operation_SetOp);
@@ -578,6 +598,228 @@ void SetupOperationNatives() {
 	CreateNative("Operation.RemoveEventListener", 		Native_Operation_RemoveEventListener);
 	CreateNative("Operation.DispatchEvent",		 		Native_Operation_DispatchEvent);
 }
+
+// OperationTemplate natives
+
+public any Native_OperationTemplate_GetFinalized(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	return eOperationTemplate.bFinalized;
+}
+
+public any Native_OperationTemplate_Init(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpInitFunc
+	eOperationTemplate.fnInit = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Validate(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpValidateFunc
+	eOperationTemplate.fnValidate = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_PreRun(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpFunc
+	eOperationTemplate.fnPreRun = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_PostRun(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpFunc
+	eOperationTemplate.fnPostRun = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Suspend(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpFunc
+	eOperationTemplate.fnSuspend = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Resume(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// OpFunc
+	eOperationTemplate.fnResume = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Cleanup(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	// CleanupFunc
+	eOperationTemplate.fnCleanup = GetNativeFunction(2);
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Loop(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	eOperationTemplate.bLoop = GetNativeCell(2) != 0;
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_SubOps(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	eOperationTemplate.bHasSubOps = GetNativeCell(2) != 0;
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Concurrent(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	eOperationTemplate.bConcurrent = GetNativeCell(2) != 0;
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_CascadeAborts(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (eOperationTemplate.bFinalized) {
+		ThrowError("Template has already been finalized");
+	}
+
+	eOperationTemplate.bCascadeAborts = GetNativeCell(2) != 0;
+
+	m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+
+	return mOpTemplate;
+}
+
+public any Native_OperationTemplate_Finalize(Handle hPlugin, int iArgC) {
+	OperationTemplate mOpTemplate = GetNativeCell(1);
+
+	_OperationTemplate eOperationTemplate;
+	GetOperationTemplate(mOpTemplate, eOperationTemplate);
+
+	if (!eOperationTemplate.bFinalized) {
+		eOperationTemplate.bFinalized = true;
+
+		m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+	}
+
+	return mOpTemplate;
+}
+
+// Operation natives
 
 public int Native_Operation_GetOp(Handle hPlugin, int iArgC) {
 	Operation mOp = GetNativeCell(1);
@@ -1237,11 +1479,15 @@ public any Native_Operation__Abort(Handle hPlugin, int iArgC) {
 	return OpRet_Abort;
 }
 
-public int Native_Operation_Register(Handle hPlugin, int iArgC) {
+public any Native_Operation_Register(Handle hPlugin, int iArgC) {
 	_OperationTemplate eOperationTemplate;
 	eOperationTemplate.hPlugin = hPlugin;
 
 	GetNativeString(1, eOperationTemplate.sIdentifier, sizeof(_OperationTemplate::sIdentifier));
+
+	if (!eOperationTemplate.sIdentifier[0]) {
+		ThrowError("Invalid identifier");
+	}
 
 	if (m_hOperationTemplates.ContainsKey(eOperationTemplate.sIdentifier)) {
 		_OperationTemplate eExistingOperationTemplate;
@@ -1253,30 +1499,30 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 	}
 
 	// OpInitFunc
-	eOperationTemplate.fnInit = GetNativeFunction(2);
+	eOperationTemplate.fnInit = INVALID_FUNCTION;
 
 	// OpValidateFunc
-	eOperationTemplate.fnValidate = GetNativeFunction(3);
+	eOperationTemplate.fnValidate = INVALID_FUNCTION;
 
 	// OpFunc
-	eOperationTemplate.fnPreRun = GetNativeFunction(4);
+	eOperationTemplate.fnPreRun = INVALID_FUNCTION;
 
 	// OpFunc
-	eOperationTemplate.fnPostRun = GetNativeFunction(5);
+	eOperationTemplate.fnPostRun = INVALID_FUNCTION;
 
 	// OpFunc
-	eOperationTemplate.fnSuspend = GetNativeFunction(6);
+	eOperationTemplate.fnSuspend = INVALID_FUNCTION;
 
 	// OpFunc
-	eOperationTemplate.fnResume = GetNativeFunction(7);
+	eOperationTemplate.fnResume = INVALID_FUNCTION;
 
 	// CleanupFunc
-	eOperationTemplate.fnCleanup = GetNativeFunction(8);
+	eOperationTemplate.fnCleanup = INVALID_FUNCTION;
 
-	eOperationTemplate.bLoop = GetNativeCell(9);
-	eOperationTemplate.bHasSubOps = GetNativeCell(10);
-	eOperationTemplate.bConcurrent = GetNativeCell(11);
-	eOperationTemplate.bCascadeAborts = GetNativeCell(12);
+	eOperationTemplate.bLoop = false;
+	eOperationTemplate.bHasSubOps = false;
+	eOperationTemplate.bConcurrent = false;
+	eOperationTemplate.bCascadeAborts = true;
 
 	eOperationTemplate.hInstances = new ArrayList();
 	eOperationTemplate.hEventForwards = new StringMap();
@@ -1284,12 +1530,19 @@ public int Native_Operation_Register(Handle hPlugin, int iArgC) {
 	if (m_hOperationTemplates.SetArray(eOperationTemplate.sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), false)) {
 		PrintToServer("[SMBL] Registered operation: %s", eOperationTemplate.sIdentifier);
 
-		return true;
+		int iReusableIdx = m_hOperationTemplateNames.FindString(NULL_STRING);
+		if (iReusableIdx == -1) {
+			return m_hOperationTemplateNames.PushString(eOperationTemplate.sIdentifier)+1;
+		}
+
+		m_hOperationTemplateNames.SetString(iReusableIdx, eOperationTemplate.sIdentifier);
+
+		return iReusableIdx+1;
 	}
 
 	PrintToServer("[SMBL] Failed to register operation (duplicate?): %s", eOperationTemplate.sIdentifier);
 
-	return false;
+	return INVALID_OPERATION_TEMPLATE;
 }
 
 public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
@@ -1328,6 +1581,9 @@ public int Native_Operation_Deregister(Handle hPlugin, int iArgC) {
 		delete eOperationTemplate.hInstances;
 		m_hOperationTemplates.Remove(sIdentifier);
 
+		int iIdx = m_hOperationTemplateNames.FindString(sIdentifier);
+		m_hOperationTemplateNames.SetString(iIdx, NULL_STRING); // Mark reusable
+
 		return true;
 	}
 
@@ -1341,6 +1597,10 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 
 	char sIdentifier[64];
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
+
+	if (!sIdentifier[0]) {
+		ThrowError("Invalid identifier");
+	}
 
 	KeyValues hInitParams = GetNativeCellRef(2);
 
@@ -1408,6 +1668,12 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		}
 
 		eOperationTemplate.hInstances.Push(mOp);
+
+		// Finalize template on first use if not already
+		if (!eOperationTemplate.bFinalized) {
+			eOperationTemplate.bFinalized = true;
+			m_hOperationTemplates.SetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate), true);
+		}
 
 		return mOp;
 	}
@@ -1682,6 +1948,22 @@ public Action Timer_RunOperations(Handle hTimer, OpRef mOpRef) {
 }
 
 // Helpers
+
+void GetOperationTemplate(OperationTemplate mOpTemplate, _OperationTemplate eOperationTemplate) {
+	int iIdx = view_as<int>(mOpTemplate)-1;
+
+	if (0 <= iIdx < m_hOperationTemplateNames.Length) {
+		char sIdentifier[OP_IDENT_MAX_LENGTH];
+		m_hOperationTemplateNames.GetString(iIdx, sIdentifier, sizeof(sIdentifier));
+
+		if (m_hOperationTemplates.ContainsKey(sIdentifier)) {
+			m_hOperationTemplates.GetArray(sIdentifier, eOperationTemplate, sizeof(_OperationTemplate));
+			return;
+		}
+	}	
+
+	ThrowError("Invalid Operation template");
+}
 
 void DeregisterPluginOperations(Handle hPlugin) {
 	StringMapSnapshot hOperationTemplatesSnapshot = m_hOperationTemplates.Snapshot();

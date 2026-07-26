@@ -70,10 +70,28 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Common.AirStrafe", AirStrafe_Init, AirStrafe_Validate);
-	Operation.Register("Common.Walk", Walk_Init, Walk_Validate, _, _, Walk_Suspend, Walk_Resume, Walk_Cleanup);
-	Operation.Register("Common.Walk.Beeline", Walk_Beeline_Init, Walk_Beeline_Validate);
-	Operation.Register("Common.Walk.Follow", Walk_Follow_Init, Walk_Follow_Validate, Walk_Follow_PreRun, _, _, _, _, true, true, false, false);
+	Operation.Register("Common.AirStrafe")
+		.Init(AirStrafe_Init)
+		.Validate(AirStrafe_Validate);
+
+	Operation.Register("Common.Walk")
+		.Init(Walk_Init)
+		.Validate(Walk_Validate)
+		.Suspend(Walk_Suspend)
+		.Resume(Walk_Resume)
+		.Cleanup(Walk_Cleanup);
+
+	Operation.Register("Common.Walk.Beeline")
+		.Init(Walk_Beeline_Init)
+		.Validate(Walk_Beeline_Validate);
+
+	Operation.Register("Common.Walk.Follow")
+		.Init(Walk_Follow_Init)
+		.Validate(Walk_Follow_Validate)
+		.PreRun(Walk_Follow_PreRun)
+		.Loop(true)
+		.SubOps(true)
+		.CascadeAborts(false);
 }
 
 // Custom callbacks
