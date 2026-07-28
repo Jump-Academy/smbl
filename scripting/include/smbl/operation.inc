@@ -41,7 +41,7 @@ enum struct Sequence {
 	char sIdentifier[64];
 	Seq iSeq;
 	int iUID;
-	SeqFunc fnRun;
+	Function fnRun; // SeqFunc
 
 	float fStartTime;
 	SeqData eSeqData;
@@ -84,13 +84,13 @@ methodmap OperationTemplate {
 		public native get();
 	}
 
-	public native OperationTemplate Init(OpInitFunc fnInit);
-	public native OperationTemplate Validate(OpValidateFunc fnValidate);
-	public native OperationTemplate PreRun(OpFunc fnPreRun);
-	public native OperationTemplate PostRun(OpFunc fnPostRun);
-	public native OperationTemplate Suspend(OpFunc fnSuspend);
-	public native OperationTemplate Resume(OpFunc fnResume);
-	public native OperationTemplate Cleanup(OpCleanupFunc fnCleanup);
+	public native OperationTemplate Init(Function fnInit); 				// OpInitFunc
+	public native OperationTemplate Validate(Function fnValidate); 		// OpValidateFunc
+	public native OperationTemplate PreRun(Function fnPreRun); 			// OpFunc
+	public native OperationTemplate PostRun(Function fnPostRun);		// OpFunc
+	public native OperationTemplate Suspend(Function fnSuspend);		// OpFunc
+	public native OperationTemplate Resume(Function fnResume);			// OpFunc
+	public native OperationTemplate Cleanup(Function fnCleanup);		// OpCleanupFunc
 	public native OperationTemplate Loop(bool bLoop);
 	public native OperationTemplate SubOps(bool bHasSubOps);
 	public native OperationTemplate Concurrent(bool bConcurrent);
@@ -236,8 +236,8 @@ methodmap Operation {
 	 */
 	public static native bool Configure(char[] sIdentifier, KeyValues &hInitParams);
 
-	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
-	public static native bool RemoveEventListener(char[] sIdentifier, char[] sEvent, OpEventFwd fnEventForward);
+	public static native bool AddEventListener(char[] sIdentifier, char[] sEvent, Function fnEventForward);		// OpEventFwd
+	public static native bool RemoveEventListener(char[] sIdentifier, char[] sEvent, Function fnEventForward); 	// OpEventFwd
 	public static native bool DispatchEvent(char[] sIdentifier, char[] sEvent, any aData=0);
 }
 

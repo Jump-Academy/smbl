@@ -6,7 +6,7 @@ Modular and extensible server-side bot library written in pure SourcePawn.
 * *Team Fortress 2*
 
 ## Dependencies
-* [SourceMod 1.12](https://www.sourcemod.net/)
+* [SourceMod 1.13](https://www.sourcemod.net/)
 * [AutoExecConfig](https://github.com/Impact123/AutoExecConfig)
 * [BotController](https://github.com/VoiDeD/sourcemod-botcontroller)
 * [Octree](https://github.com/geominorai/sm-octree)

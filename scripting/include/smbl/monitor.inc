@@ -5,7 +5,7 @@ enum struct MonData {
 methodmap Monitor {
 	public native void Start();
 
-	public static native bool Register(char[] sIdentifier, MonInitFunc fnMonInit, MonThinkFunc fnMonThink=INVALID_FUNCTION, MonCleanupFunc fnMonCleanup=INVALID_FUNCTION);
+	public static native bool Register(char[] sIdentifier, Function fnMonInit, Function fnMonThink=INVALID_FUNCTION, Function fnMonCleanup=INVALID_FUNCTION); // MonInitFunc, MonThinkFunc, MonCleanupFunc
 	public static native bool Deregister(char[] sIdentifier);
 }
 

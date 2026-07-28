@@ -906,7 +906,8 @@ public any Native_Controller_Deregister(Handle hPlugin, int iArgC) {
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));
 
 	if (!sIdentifier[0]) {
-		return DeregisterPluginControllers(hPlugin);
+		DeregisterPluginControllers(hPlugin);
+		return true;
 	}
 
 	GetNativeString(1, sIdentifier, sizeof(sIdentifier));

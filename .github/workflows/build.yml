@@ -14,10 +14,10 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Setup SourcePawn compiler 1.12
+    - name: Setup SourcePawn compiler 1.13
       uses: rumblefrog/setup-sp@master
       with:
-        version: '1.12.7163'
+        version: '1.13.x'
 
     - name: Create external dependency directories
       run: |
