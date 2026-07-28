@@ -22,7 +22,6 @@ jobs:
     - name: Create external dependency directories
       run: |
         mkdir includes
-        mkdir includes/multicolors
 
     - name: Copy local include files to dependency directory
       run: cp -r scripting/include/* includes/
@@ -32,9 +31,6 @@ jobs:
         wget https://raw.githubusercontent.com/Impact123/AutoExecConfig/development/autoexecconfig.inc -P includes
         wget https://raw.githubusercontent.com/VoiDeD/sourcemod-botcontroller/master/scripting/botcontroller.inc -P includes
         wget https://raw.githubusercontent.com/geominorai/sm-octree/master/scripting/include/octree.inc -P includes
-        wget https://raw.githubusercontent.com/Bara/Multi-Colors/master/addons/sourcemod/scripting/include/multicolors.inc -P includes
-        wget https://raw.githubusercontent.com/Bara/Multi-Colors/master/addons/sourcemod/scripting/include/multicolors/colors.inc -P includes/multicolors
-        wget https://raw.githubusercontent.com/Bara/Multi-Colors/master/addons/sourcemod/scripting/include/multicolors/morecolors.inc  -P includes/multicolors
         wget https://raw.githubusercontent.com/asherkin/TF2Items/master/pawn/tf2items.inc -P includes
 
     - name: Fetch smlib dependency

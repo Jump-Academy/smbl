@@ -13,7 +13,6 @@
 
 #include <autoexecconfig>
 #include <botcontroller>
-#include <multicolors>
 #include <smlib/arrays>
 #include <smlib/clients>
 #include <smlib/entities>
