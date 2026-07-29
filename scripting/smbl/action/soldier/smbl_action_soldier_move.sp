@@ -81,7 +81,6 @@ public void SMBL_OnStart() {
 
 public void SMBL_NavMesh_OnCache() {
 	NavMesh.RegisterCache("Soldier.Move3D", NavCacheableFunc_RocketJump);
-	NavMesh.RegisterCache("Soldier.Dummy", NavCacheableFunc_Dummy);
 }
 
 // Operation callbacks
@@ -1049,10 +1048,6 @@ public bool NavCacheableFunc_RocketJump(NavNode mNodeA, NavNode mNodeB, KeyValue
 	}
 
 	return iIdx > 0;
-}
-
-public bool NavCacheableFunc_Dummy(NavNode mNodeA, NavNode mNodeB, KeyValues hKVData) {
-	return false;
 }
 
 // Helpers
