@@ -30,14 +30,21 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavNode.GetEdgeCenter");
 	MarkNativeAsOptional("NavNode.GetEdgeVertices");
 	MarkNativeAsOptional("NavNode.GetEdgeOverlap");
+	MarkNativeAsOptional("NavNode.GetNearestEdgeProjection");
+	MarkNativeAsOptional("NavNode.GetHullProjection");
 
 	MarkNativeAsOptional("NavNode.PushAttachment");
 	MarkNativeAsOptional("NavNode.EraseAttachment");
 	MarkNativeAsOptional("NavNode.GetAttachment");
 	MarkNativeAsOptional("NavNode.SetAttachment");
 	MarkNativeAsOptional("NavNode.FindAttachment");
+	MarkNativeAsOptional("NavNode.FindAttachmentWithFlags");
+	MarkNativeAsOptional("NavNode.FindAttachedNode");
 	MarkNativeAsOptional("NavNode.ClearAttachments");
 	MarkNativeAsOptional("NavNode.GetAttachmentsLength");
+
+	MarkNativeAsOptional("NavNode.GetClosestEdge");
+	MarkNativeAsOptional("NavNode.GetFarthestEdge");
 
 	MarkNativeAsOptional("NavNode.Contains");
 
@@ -56,6 +63,7 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavMesh.GetNodesInRange");
 	MarkNativeAsOptional("NavMesh.GetNearestNodeInRange");
 	MarkNativeAsOptional("NavMesh.UpdateIndex");
+
 	MarkNativeAsOptional("NavMesh.LookupCache");
 
 	MarkNativeAsOptional("NavMesh.Instance");
@@ -64,16 +72,26 @@ public void __pl_smbl_nav_mesh_SetNTVOptional() {
 	MarkNativeAsOptional("NavMesh.LoadNavFile");
 	MarkNativeAsOptional("NavMesh.SaveNavFile");
 
-	MarkNativeAsOptional("NavMesh.SetCacheable");
-	MarkNativeAsOptional("NavMesh.RemoveCacheable");
+	MarkNativeAsOptional("NavMesh.RegisterCache");
+	MarkNativeAsOptional("NavMesh.DeregisterCache");
+
+	MarkNativeAsOptional("NavPath.mNavMesh.get");
+	MarkNativeAsOptional("NavPath.iLength.get");
+	MarkNativeAsOptional("NavPath.fCost.get");
+	MarkNativeAsOptional("NavPath.Get");
+	MarkNativeAsOptional("NavPath.Optimize");
+
+	MarkNativeAsOptional("NavPath.Destroy");
 
 	MarkNativeAsOptional("Navigation.FindShortestPath");
-	MarkNativeAsOptional("Navigation.CheckLineOfSight");
 
 	MarkNativeAsOptional("SMBL_RegisterNavMesh");
 	MarkNativeAsOptional("SMBL_DeregisterNavMesh");
 	MarkNativeAsOptional("SMBL_DeregisterAllNavMeshes");
 	MarkNativeAsOptional("SMBL_GetNavMesh");
+
+	MarkNativeAsOptional("SMBL_NavMesh_IsCacheReady");
+	MarkNativeAsOptional("SMBL_NavMesh_NotifyOnCache");
 }
 #endif
 
