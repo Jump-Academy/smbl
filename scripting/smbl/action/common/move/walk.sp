@@ -1,5 +1,3 @@
-#define DEFAULT_GOAL_PROXIMITY	50.0
-
 enum struct OpData_Walk {
 	NavNode mEndNode;
 	float vecDest[3];
@@ -262,7 +260,27 @@ OpRet Walk(Bot mBot, Operation mOp, OpData_Walk eOpData, SeqData_Walk eSeqData, 
 
 	if (eSeqData.iPathMode == PathMode_Bypass) {
 		return OpRet_Handled;
-	} else if (fDist2D < eOpData.fGoalProximity) {
+	}
+
+	// Prevent overshooting destination if dropping from height
+	if (!(GetEntityFlags(iEntity) & FL_ONGROUND)) {
+		float vecVel[3];
+		Entity_GetAbsVelocity(iEntity, vecVel);
+
+		float fAirTime = GetAirTime(iEntity, vecVel[2], eSeqData.vecDest[2]-vecPos[2]);
+
+		float fVel2D = SquareRoot(vecVel[0]*vecVel[0]+vecVel[1]*vecVel[1]);
+		float fTime2D = fDist2D/fVel2D;
+
+		if (fAirTime > fTime2D) {
+			mBot.iButtons |= IN_BACK;
+			mBot.SetLocalVelocity({-400.0, 0.0, 0.0});
+		}
+
+		return OpRet_Continue;
+	}
+
+	if (fDist2D < eOpData.fGoalProximity) {
 		eOpData.vecLastPos = eSeqData.vecDest;
 		return OpRet_Handled;
 	}

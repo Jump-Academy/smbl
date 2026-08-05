@@ -14,6 +14,8 @@
 
 #define NODE_PROXIMITY	500.0
 
+#define DEFAULT_GOAL_PROXIMITY			50.0
+
 #define PROBE_MIN		{5.0, 5.0, 5.0}
 #define PROBE_MAX		{5.0, 5.0, 5.0}
 
@@ -119,6 +121,44 @@ float GetVectorDistance2D(const float vecA[3], const float vecB[3]) {
 	float fDelta1 = vecB[1] - vecA[1];
 
 	return SquareRoot(fDelta0*fDelta0 + fDelta1*fDelta1);
+}
+
+float GetAirTime(int iEntity, float fInitialZSpeed, float fZDistance) {
+	float fEntityGravityRatio = GetEntityGravity(iEntity);
+	if (fEntityGravityRatio == 0.0) {
+		fEntityGravityRatio = 1.0;
+	}
+
+	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
+
+	/*
+	 * Kinematic equation
+	 *
+	 * dz = v0*t + (0.5*g)*t^2
+	 * -> (0.5*g)*t^2 + v0*t - dz = 0
+	 *       a           b      c
+	 *
+	 * Quadratic formula
+	 *
+	 * t = (-b ± sqrt(b^2 - 4*a*c)) / (2*a)
+	 * -> t = (-v0 ± sqrt(v0^2 - 4*(0.5*g)*(-dz))) / (2*(0.5*g))
+	 * -> t = (-v0 ± sqrt(v0^2 + 2*g*dz)) / g
+	 *
+	 * t must be larger of the two solutions due to being on the far end of the parabolic arc
+	 */
+	float fDiscriminant = fInitialZSpeed*fInitialZSpeed + 2*fGravity*fZDistance;
+
+	// Unreachable since destination is above parabola
+	if (fDiscriminant < 0) {
+		return 0.0;
+	}
+
+	float fSqrtDiscriminant = SquareRoot(fDiscriminant);
+
+	float fAirTimeA = (-fInitialZSpeed + fSqrtDiscriminant) / fGravity;
+	float fAirTimeB = (-fInitialZSpeed - fSqrtDiscriminant) / fGravity;
+
+	return fAirTimeA >= fAirTimeB ? fAirTimeA : fAirTimeB;
 }
 
 #if defined DEBUG

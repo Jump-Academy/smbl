@@ -24,7 +24,6 @@ enum struct SeqData_AirStrafe {
 	any aPadding[15];
 }
 
-#define DEFAULT_GOAL_PROXIMITY			50.0
 #define AIRBRAKE_SPEED					32.0
 #define AIRBRAKE_DECELERATION			2112.0	// 32u/s additional speed reduction every tick (32/(1/66))
 #define AIRBRAKE_BUFFER					15.0
@@ -369,44 +368,4 @@ OpRet AirStrafe_StraightHeading(Bot mBot, Operation mOp, OpData_AirStrafe eOpDat
 	mBot.iButtons = iButtons;
 
 	return OpRet_Continue;
-}
-
-// Helpers
-
-float GetAirTime(int iEntity, float fInitialZSpeed, float fZDistance) {
-	float fEntityGravityRatio = GetEntityGravity(iEntity);
-	if (fEntityGravityRatio == 0.0) {
-		fEntityGravityRatio = 1.0;
-	}
-
-	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
-
-	/*
-	 * Kinematic equation
-	 *
-	 * dz = v0*t + (0.5*g)*t^2                  
-	 * -> (0.5*g)*t^2 + v0*t - dz = 0
-	 *       a           b      c
-	 *      
-	 * Quadratic formula
-	 *
-	 * t = (-b ± sqrt(b^2 - 4*a*c)) / (2*a)
-	 * -> t = (-v0 ± sqrt(v0^2 - 4*(0.5*g)*(-dz))) / (2*(0.5*g))
-	 * -> t = (-v0 ± sqrt(v0^2 + 2*g*dz)) / g
-	 *
-	 * t must be larger of the two solutions due to being on the far end of the parabolic arc
-	 */
-	float fDiscriminant = fInitialZSpeed*fInitialZSpeed + 2*fGravity*fZDistance;
-
-	// Unreachable since destination is above parabola
-	if (fDiscriminant < 0) {
-		return 0.0;
-	}
-
-	float fSqrtDiscriminant = SquareRoot(fDiscriminant);
-
-	float fAirTimeA = (-fInitialZSpeed + fSqrtDiscriminant) / fGravity;
-	float fAirTimeB = (-fInitialZSpeed - fSqrtDiscriminant) / fGravity;
-
-	return fAirTimeA >= fAirTimeB ? fAirTimeA : fAirTimeB;
 }
