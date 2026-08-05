@@ -1,16 +1,3 @@
-#pragma semicolon 1
-
-#define DEBUG
-
-#define PLUGIN_AUTHOR "AI"
-#define PLUGIN_VERSION "0.1.0"
-
-#include <smlib/clients>
-#include <smlib/entities>
-#include <smlib/math>
-
-#include <smbl>
-
 #define PID_FAST		{0.10,	0.001,	0.01}
 
 #define AIM_ERROR_TARGET	5.0
@@ -19,29 +6,6 @@ enum struct OpData_Shoot {
 	int iTargetRef;
 	float vecTargetPos[3];
 	any aPadding[12];
-}
-
-public Plugin myinfo = {
-	name = "SMBL Common Bot Actions Library: Shoot",
-	author = PLUGIN_AUTHOR,
-	description = "Shooting operations for all bot classes",
-	version = PLUGIN_VERSION,
-	url = "https://jumpacademy.tf"
-};
-
-public void OnPluginStart() {
-	SMBL_NotifyOnStart();
-}
-
-// Library forwards
-
-public void SMBL_OnStart() {
-	Operation.Register("Common.Attack.Shoot")
-		.Init(Shoot_Init)
-		.Validate(Shoot_Validate)
-		.PreRun(Shoot_PreRun)
-		.Cleanup(Shoot_Cleanup)
-		.Loop(true);
 }
 
 // Operation callbacks
@@ -87,21 +51,6 @@ OpRet Shoot_Validate(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Shoot
 	return OpRet_Continue;
 }
 
-void Shoot_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Shoot eOpData) {
-	if (mBot) {
-		mBot.iButtons &= ~IN_ATTACK;
-	}
-}
-
-// Custom callbacks
-
-public bool TraceEntityFilter_IgnoreTeam(int iEntity, int iContentsMask, int iTeam) {
-	// TODO: Non-client bot teams
-	return SMBL_GetEntityBot(iEntity) && GetClientTeam(iEntity) != iTeam;
-}
-
-// Helpers
-
 OpRet Shoot_PreRun(Bot mBot, Operation mOp, OpData_Shoot eOpData) {
 	int iEntity = mBot.iEntity;
 
@@ -137,32 +86,8 @@ OpRet Shoot_PreRun(Bot mBot, Operation mOp, OpData_Shoot eOpData) {
 	return OpRet_Continue;
 }
 
-void GetViewerPos(int iEntity, float vecViewerPos[3]) {
-	float vecMins[3], vecMaxs[3], vecSize[3];
-
-	if (1 <= iEntity < MaxClients) {
-		GetClientEyePosition(iEntity, vecViewerPos);
-	} else {
-		// TODO: Custom bot viewer position
-		Entity_GetAbsOrigin(iEntity, vecViewerPos);
-
-		Entity_GetMinSize(iEntity, vecMins);
-		Entity_GetMaxSize(iEntity, vecMaxs);
-
-		// Midpoint
-		SubtractVectors(vecMaxs, vecMins, vecSize);
-		ScaleVector(vecSize, 0.5);
-		AddVectors(vecViewerPos, vecSize, vecViewerPos);
+void Shoot_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_Shoot eOpData) {
+	if (mBot) {
+		mBot.iButtons &= ~IN_ATTACK;
 	}
-}
-
-void GetEntityMidpoint(int iEntity, float vecMidpoint[3]) {
-	float vecMins[3], vecMaxs[3];
-
-	Entity_GetAbsOrigin(iEntity, vecMidpoint);
-
-	Entity_GetMinSize(iEntity, vecMins);
-	Entity_GetMaxSize(iEntity, vecMaxs);
-
-	vecMidpoint[2] += 0.5*(vecMaxs[2]-vecMins[2]);
 }

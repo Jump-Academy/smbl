@@ -70,22 +70,22 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Common.AirStrafe")
+	Operation.Register("Common.Move.AirStrafe")
 		.Init(AirStrafe_Init)
 		.Validate(AirStrafe_Validate);
 
-	Operation.Register("Common.Walk")
+	Operation.Register("Common.Move.Walk")
 		.Init(Walk_Init)
 		.Validate(Walk_Validate)
 		.Suspend(Walk_Suspend)
 		.Resume(Walk_Resume)
 		.Cleanup(Walk_Cleanup);
 
-	Operation.Register("Common.Walk.Beeline")
+	Operation.Register("Common.Move.Walk.Beeline")
 		.Init(Walk_Beeline_Init)
 		.Validate(Walk_Beeline_Validate);
 
-	Operation.Register("Common.Walk.Follow")
+	Operation.Register("Common.Move.Walk.Follow")
 		.Init(Walk_Follow_Init)
 		.Validate(Walk_Follow_Validate)
 		.PreRun(Walk_Follow_PreRun)

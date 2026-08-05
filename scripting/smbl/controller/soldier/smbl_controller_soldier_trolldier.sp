@@ -33,8 +33,8 @@ public void SMBL_OnStart() {
 public void ContrInitFunc_Trolldier_Init(Controller mContr) {
 	mContr.AddMonitor("TargetAcquisition.FOV").Start();
 
-	mContr.AddAction("Soldier.Move3D", 			ActionType_Move);
-	mContr.AddAction("Soldier.MarketGarden",	ActionType_Attack);
+	mContr.AddAction("Soldier.Move", 			ActionType_Move);
+	mContr.AddAction("Soldier.Attack.MarketGarden",	ActionType_Attack);
 
 	NavMesh mGroundNavMesh = SMBL_GetNavMesh("Ground");
 

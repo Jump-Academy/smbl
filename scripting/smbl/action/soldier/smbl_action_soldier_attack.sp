@@ -49,13 +49,13 @@ public void OnPluginStart() {
 }
 
 public void SMBL_OnStart() {
-	Operation.Register("Soldier.MarketGarden.Swing")
+	Operation.Register("Soldier.Attack.MarketGarden.Swing")
 		.Init(MarketGarden_Swing_Init)
 		.Suspend(UnsupportedFunction)
 		.Cleanup(MarketGarden_Swing_Cleanup);
 
 	// Auto dispatch wrapper
-	Operation.Register("Soldier.MarketGarden")
+	Operation.Register("Soldier.Attack.MarketGarden")
 		.Init(MarketGarden_Init)
 		.Suspend(UnsupportedFunction)
 		.Cleanup(MarketGarden_Cleanup)
@@ -63,10 +63,10 @@ public void SMBL_OnStart() {
 		.Concurrent(true);
 
 	// Internal use
-	Operation.AddEventListener("Soldier.MarketGarden", ".player_death", OpEventFwd_CheckTargetDeath);
-	Operation.AddEventListener("Soldier.MarketGarden", ".target_damage", OpEventFwd_CheckTargetDamage);
-	Operation.AddEventListener("Soldier.MarketGarden.Swing", ".rocket_jump", OpEventFwd_DetectRocketJump);
-	Operation.AddEventListener("Soldier.MarketGarden.Swing", ".rocket_jump_completed", OpEventFwd_RocketJumpCompleted);
+	Operation.AddEventListener("Soldier.Attack.MarketGarden", ".player_death", OpEventFwd_CheckTargetDeath);
+	Operation.AddEventListener("Soldier.Attack.MarketGarden", ".target_damage", OpEventFwd_CheckTargetDamage);
+	Operation.AddEventListener("Soldier.Attack.MarketGarden.Swing", ".rocket_jump", OpEventFwd_DetectRocketJump);
+	Operation.AddEventListener("Soldier.Attack.MarketGarden.Swing", ".rocket_jump_completed", OpEventFwd_RocketJumpCompleted);
 }
 
 // Operation callbacks
@@ -143,7 +143,7 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 		hTestInitParams.SetNum("airbrake", true);
 	}
 
-	if (!Operation.Configure("Soldier.RocketJump", hTestInitParams)) {
+	if (!Operation.Configure("Soldier.Move.RocketJump", hTestInitParams)) {
 		delete hTestInitParams;
 		PrintToServer("target not reachable with rocket jump");
 		return mOp._Abort("target not reachable with rocket jump");
@@ -154,7 +154,7 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 	}
 
 	KeyValues hRocketJumpInitParams;
-	Operation mRocketJumpOp = Operation.Instance("Soldier.RocketJump", hRocketJumpInitParams);
+	Operation mRocketJumpOp = Operation.Instance("Soldier.Move.RocketJump", hRocketJumpInitParams);
 
 	hRocketJumpInitParams.Import(hTestInitParams);
 	delete hTestInitParams;
@@ -164,7 +164,7 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 	mOp.AddSubOperation(mRocketJumpOp);
 
 	KeyValues hMarketGardenSwingInitParams;
-	Operation mMarketGardenSwingOp = Operation.Instance("Soldier.MarketGarden.Swing", hMarketGardenSwingInitParams);
+	Operation mMarketGardenSwingOp = Operation.Instance("Soldier.Attack.MarketGarden.Swing", hMarketGardenSwingInitParams);
 	hMarketGardenSwingInitParams.SetNum("target", iTargetEntity);
 
 	// Init and assign bot on same tick to prevent race conditions where rocket jump operation aborts before on-demand init
@@ -187,13 +187,13 @@ void MarketGarden_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_
 // Custom callbacks
 
 public Action Event_PlayerDeath(Event hEvent, const char[] sName, bool bDontBroadcast) {
-	Operation.DispatchEvent("Soldier.MarketGarden", ".player_death", hEvent.GetInt("victim_entindex"));
+	Operation.DispatchEvent("Soldier.Attack.MarketGarden", ".player_death", hEvent.GetInt("victim_entindex"));
 	return Plugin_Continue;
 }
 
 public Action Event_RocketJump(Event hEvent, const char[] sName, bool bDontBroadcast) {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
-	Operation.DispatchEvent("Soldier.MarketGarden.Swing", ".rocket_jump", iClient);
+	Operation.DispatchEvent("Soldier.Attack.MarketGarden.Swing", ".rocket_jump", iClient);
 	return Plugin_Continue;
 }
 
@@ -203,7 +203,7 @@ public void SDKHookCB_OnTakeDamagePost_Target(int iVictim, int iAttacker, int iI
 		Bot mBot = SMBL_GetClientBot(iAttacker);
 		if (mBot) {
 			int iData = (iVictim << 16) | view_as<int>(mBot);
-			Operation.DispatchEvent("Soldier.MarketGarden", ".target_damage", iData);
+			Operation.DispatchEvent("Soldier.Attack.MarketGarden", ".target_damage", iData);
 		}
 	}
 }
@@ -237,6 +237,6 @@ public void OpEventFwd_DetectRocketJump(Bot mBot, Operation mOp, OpData_MarketGa
 
 public void OpStateChangeFwd_RocketJumpLaunched(Bot mBot, Operation mOp, OpState iOpState) {
 	if (iOpState == OpState_Complete) {
-		Operation.DispatchEvent("Soldier.MarketGarden.Swing", ".rocket_jump_completed", mBot);
+		Operation.DispatchEvent("Soldier.Attack.MarketGarden.Swing", ".rocket_jump_completed", mBot);
 	}
 }

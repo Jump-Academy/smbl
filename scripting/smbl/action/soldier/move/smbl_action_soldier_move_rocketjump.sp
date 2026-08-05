@@ -23,14 +23,9 @@
 #define PID_VFAST_PREC	{0.50,	0.000,	0.00}
 #define PID_SNAP		{1.00,	0.000,	0.00}
 
-#define COLOR_WHITE		{255, 255, 255, 255}
 #define COLOR_RED		{255, 0, 0, 255}
-#define COLOR_GREEN		{0, 255, 0, 255}
-#define COLOR_BLUE		{0, 0, 255, 255}
 #define COLOR_YELLOW	{255, 255, 0, 255}
 #define COLOR_MAGENTA	{255, 0, 255, 255}
-#define COLOR_CYAN		{0, 255, 255, 255}
-#define COLOR_ORANGE	{127, 31, 0, 255}
 
 #define DEFAULT_GOAL_PROXIMITY	50.0
 #define CLOSE_RANGE_CUTOFF		300.0
@@ -93,12 +88,12 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Soldier.WallClimb")
+	Operation.Register("Soldier.Move.RocketJump.WallClimb")
 		.Init(WallClimb_Init)
 		.Suspend(UnsupportedFunction)
 		.Cleanup(WallClimb_Cleanup);
 
-	Operation.Register("Soldier.WallClimbAdjacent")
+	Operation.Register("Soldier.Move.RocketJump.WallClimbAdjacent")
 		.Init(WallClimbAdjacent_Init)
 		.Suspend(UnsupportedFunction)
 		.Cleanup(WallClimbAdjacent_Cleanup);
@@ -111,13 +106,13 @@ public void SMBL_OnStart() {
 
 	// Auto dispatch wrapper
 #if defined DEBUG
-	Operation.Register("Soldier.RocketJump")
+	Operation.Register("Soldier.Move.RocketJump")
 		.Init(RocketJump_Init)
 		.PostRun(RocketJump_PostRun)
 		.Suspend(UnsupportedFunction)
 		.SubOps(true);
 #else
-	Operation.Register("Soldier.RocketJump")
+	Operation.Register("Soldier.Move.RocketJump")
 		.Init(RocketJump_Init)
 		.Suspend(UnsupportedFunction)
 		.SubOps(true);
@@ -326,7 +321,7 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 	}
 
 	KeyValues hAirStrafeInitParams;
-	Operation mAirStrafeOp = Operation.Instance("Common.AirStrafe", hAirStrafeInitParams, view_as<Op>(1));
+	Operation mAirStrafeOp = Operation.Instance("Common.Move.AirStrafe", hAirStrafeInitParams, view_as<Op>(1));
 	hAirStrafeInitParams.SetFloat("goal_proximity", fGoalProximity);
 
 	if (bAirBrake) {
