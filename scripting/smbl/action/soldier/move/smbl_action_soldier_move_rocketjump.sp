@@ -46,8 +46,8 @@ enum RocketJumpType {
 }
 
 char g_sRocketJumpIdentifiers[][] = {
-	"Soldier.GroundShot.Back",
-	"Soldier.GroundShot.Down"
+	"Soldier.Move.RocketJump.GroundShot.Back",
+	"Soldier.Move.RocketJump.GroundShot.Down"
 };
 
 enum struct OpData_RocketJump {
