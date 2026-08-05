@@ -36,14 +36,17 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		return mOp._Abort("missing destination init parameter");
 	}
 
+	Entity_GetAbsOrigin(mBot.iEntity, eOpData.vecLastPos);
+
 	hInitParams.GoBack();
 	hInitParams.GetVector("destination", vecDest);
+
 
 	if (hInitParams.JumpToKey("origin")) {
 		hInitParams.GoBack();
 		hInitParams.GetVector("origin", vecOrigin);
 	} else {
-		Entity_GetAbsOrigin(mBot.iEntity, vecOrigin);
+		vecOrigin = eOpData.vecLastPos;
 	}
 
 	bool bBeelineStart, bBeelineEnd;
@@ -65,8 +68,6 @@ OpRet Walk_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 			mStartNode.GetHullProjection(vecOrigin, vecStart);
 			PrintToServer("Projected start to hull point: (%.1f, %.1f, %.1f)", vecStart[0], vecStart[1], vecStart[2]);
 		}
-
-		eOpData.vecLastPos = vecStart;
 	}
 
 	if (mEndNode) {
