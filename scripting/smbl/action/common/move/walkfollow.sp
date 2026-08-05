@@ -139,7 +139,7 @@ OpRet Walk_Follow_PreRun(Bot mBot, Operation mOp, OpData_Walk_Follow eOpData) {
 	mOp.ClearSubOperations();
 
 	KeyValues hInitParams;
-	mWalkOp = Operation.Instance("Common.Walk", hInitParams);
+	mWalkOp = Operation.Instance("Common.Move.Walk", hInitParams);
 
 	if (eOpData.mCurrentNode) {
 		hInitParams.SetNum("start_node", view_as<int>(eOpData.mCurrentNode));

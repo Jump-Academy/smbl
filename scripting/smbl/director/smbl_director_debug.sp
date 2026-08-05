@@ -666,7 +666,7 @@ public Action cmdGoTo(int iClient, int iArgC) {
 	bool bAppend = false;
 	switch (iArgC) {
 		case 1: {
-			sOperation = "Common.Walk";
+			sOperation = "Common.Move.Walk";
 		}
 		case 2: {
 			GetCmdArg(2, sOperation, sizeof(sOperation));

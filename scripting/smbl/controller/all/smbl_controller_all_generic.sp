@@ -38,7 +38,7 @@ public void ContrInitFunc_Generic_Init(Controller mContr) {
 
 // 	mContr.AddProcess(Operation.Instance("Process.Combat.Attack"), ProcessPriority_AboveNormal);
 
-	mContr.AddAction("Common.Walk", ActionType_Move);
+	mContr.AddAction("Common.Move.Walk", ActionType_Move);
 
 	NavMesh mGroundNavMesh = SMBL_GetNavMesh("Ground");
 
