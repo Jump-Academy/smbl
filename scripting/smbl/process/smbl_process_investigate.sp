@@ -115,6 +115,11 @@ public void SDKHookCB_Bot_OnTakeDamagePost(int iVictim, int iAttacker, int iInfl
 		return;
 	}
 
+	// TODO: Non-client bot teams and friendly-fire
+	if (TF2_GetClientTeam(iVictim) == TF2_GetClientTeam(iAttacker)) {
+		return;
+	}
+
 	Bot mBot = SMBL_GetEntityBot(iVictim);
 	Controller mContr = mBot.GetController();
 
