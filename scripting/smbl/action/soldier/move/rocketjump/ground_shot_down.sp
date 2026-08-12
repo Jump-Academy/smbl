@@ -1,16 +1,16 @@
-enum struct OpData_Groundshot_Down {
+enum struct OpData_Ground_Shot_Down {
 	float fHeadingAng;
 	float fStartSpeed;
 	float fShotDelay;
 	any aPadding[13];
 }
 
-enum struct SeqData_Groundshot_Down_PrepareRocketLauncher {
+enum struct SeqData_Ground_Shot_Down_PrepareRocketLauncher {
 	float fReloadCompleteTime;
 	any aPadding[15];
 }
 
-enum struct SeqData_Groundshot_Down {
+enum struct SeqData_Ground_Shot_Down {
 	float fDelayOffset;
 	bool bShot;
 	any aPadding[14];
@@ -29,15 +29,12 @@ static float g_fGroundShotParams[][] = {
 	{0.7424, 149.8582, 392.7835}
 };
 
-#define CLOSE_RANGE_CUTOFF	300.0
-#define MIN_START_SPEED		239.0
-
 #define MIN_WALK_TIME		0.15
 #define MIN_WALK_DISTANCE	25.0
 
 // Operation callbacks
 
-OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Groundshot_Down eOpData, bool bConfigureOnly) {
+OpRet Ground_Shot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Ground_Shot_Down eOpData, bool bConfigureOnly) {
 	int iEntity;
 
 	if (!bConfigureOnly) {
@@ -132,16 +129,16 @@ OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 	Sequence eSeq;
 
-	eSeq.fnRun = GroundShot_Down_PrepRocketLauncher;
+	eSeq.fnRun = Ground_Shot_Down_PrepRocketLauncher;
 	eSeq.sIdentifier = "Prep_Rocket_Launcher";
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = GroundShot_Down_Shoot_Ground;
+	eSeq.fnRun = Ground_Shot_Down_Shoot_Ground;
 	eSeq.iSeq = view_as<Seq>(1);
 	eSeq.sIdentifier = "Shoot_Ground";
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = GroundShot_Down_Face_Heading;
+	eSeq.fnRun = Ground_Shot_Down_Face_Heading;
 	eSeq.iSeq = view_as<Seq>(2);
 	eSeq.sIdentifier = "Face_Heading";
 	hSequences.PushArray(eSeq);
@@ -149,7 +146,7 @@ OpRet GroundShot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Down_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Groundshot_Down eOpData, SeqData_Groundshot_Down_PrepareRocketLauncher eSeqData, float fStartTime) {
+OpRet Ground_Shot_Down_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Ground_Shot_Down eOpData, SeqData_Ground_Shot_Down_PrepareRocketLauncher eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		mBot.SwitchWeapon(TFWeaponSlot_Primary);
 	}
@@ -178,7 +175,7 @@ OpRet GroundShot_Down_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Grounds
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Down_Shoot_Ground(Bot mBot, Operation mOp, OpData_Groundshot_Down eOpData, SeqData_Groundshot_Down eSeqData, float fStartTime) {
+OpRet Ground_Shot_Down_Shoot_Ground(Bot mBot, Operation mOp, OpData_Ground_Shot_Down eOpData, SeqData_Ground_Shot_Down eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		vecAimAng[0] = 89.0;
@@ -235,7 +232,7 @@ OpRet GroundShot_Down_Shoot_Ground(Bot mBot, Operation mOp, OpData_Groundshot_Do
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Down_Face_Heading(Bot mBot, Operation mOp, OpData_Groundshot_Down eOpData, SeqData eSeqData, float fStartTime) {
+OpRet Ground_Shot_Down_Face_Heading(Bot mBot, Operation mOp, OpData_Ground_Shot_Down eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		vecAimAng[1] = eOpData.fHeadingAng;

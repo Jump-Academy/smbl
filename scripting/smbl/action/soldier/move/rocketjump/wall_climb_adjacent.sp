@@ -1,4 +1,4 @@
-enum struct OpData_WallClimbAdjacent {
+enum struct OOpData_Wall_Climb_Adjacent {
 	float vecDest[3];
 	float vecWallAng[3];
 	float vecWallNormalYaw;
@@ -6,14 +6,14 @@ enum struct OpData_WallClimbAdjacent {
 	any aPadding[6];
 }
 
-enum struct SeqData_WallClimbAdjacent {
+enum struct SeqData_Wall_Climb_Adjacent {
 	float vecDest[3];
 	any aPadding[13];
 }
 
 // Operation callbacks
 
-OpRet WallClimbAdjacent_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_WallClimbAdjacent eOpData) {
+OpRet Wall_Climb_Adjacent_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OOpData_Wall_Climb_Adjacent eOpData) {
 	int iEntity = mBot.iEntity;
 
 	if (!(1 <= iEntity <= MaxClients) || TF2_GetPlayerClass(iEntity) != TFClass_Soldier) {
@@ -36,7 +36,7 @@ OpRet WallClimbAdjacent_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Arr
 		PrintToServer("Looking up NavMesh with %d nodes", hNodes.Length);
 		delete hNodes;
 
-		PrintToServer("WallClimbAdjacent Start: %.1f, %.1f, %.1f", vecStart[0], vecStart[1], vecStart[2]);
+		PrintToServer("Wall_Climb_Adjacent Start: %.1f, %.1f, %.1f", vecStart[0], vecStart[1], vecStart[2]);
 
 		if (mStartNode) {
 			mStartNode.GetOrigin(vecStart);
@@ -185,42 +185,42 @@ OpRet WallClimbAdjacent_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Arr
 
 	eOpData.vecDest = vecDest;
 
-	SeqData_WallClimbAdjacent eSeqData;
+	SeqData_Wall_Climb_Adjacent eSeqData;
 	eSeqData.vecDest = vecNearestWall;
 
 	Sequence eSeq;
-	eSeq.fnRun = WallClimbAdjacent_Walk;
+	eSeq.fnRun = Wall_Climb_Adjacent_Walk;
 	eSeq.iSeq = view_as<Seq>(0);
 	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Walk [%.1f %.1f %.1f]", eSeqData.vecDest[0], eSeqData.vecDest[1], eSeqData.vecDest[2]);
 
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = WallClimbAdjacent_Aim_Align_Wall;
+	eSeq.fnRun = Wall_Climb_Adjacent_Aim_Align_Wall;
 	eSeq.iSeq = view_as<Seq>(1);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Aim_Align_Wall");
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = WallClimbAdjacent_Shoot_Ground;
+	eSeq.fnRun = Wall_Climb_Adjacent_Shoot_Ground;
 	eSeq.iSeq = view_as<Seq>(2);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Shoot_Ground");
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = WallClimbAdjacent_Shoot_Wall;
+	eSeq.fnRun = Wall_Climb_Adjacent_Shoot_Wall;
 	eSeq.iSeq = view_as<Seq>(3);
 	eSeqData.vecDest[2] = vecDest[2] - 100.0;
 	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Shoot_Wall_Climb");
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = WallClimbAdjacent_Shoot_Wall_Away;
+	eSeq.fnRun = Wall_Climb_Adjacent_Shoot_Wall_Away;
 	eSeq.iSeq = view_as<Seq>(4);
 	eSeqData.vecDest[2] = vecDest[2];
 	eSeq.SetData(eSeqData);
 	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Shoot_Wall_Away");
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = WallClimbAdjacent_Airstrafe;
+	eSeq.fnRun = Wall_Climb_Adjacent_Airstrafe;
 	eSeq.iSeq = view_as<Seq>(5);
 	eSeqData.vecDest = vecDest;
 	eSeq.SetData(eSeqData);
@@ -230,13 +230,13 @@ OpRet WallClimbAdjacent_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Arr
 	return OpRet_Continue;
 }
 
-void WallClimbAdjacent_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OpData_WallClimbAdjacent eOpData) {
-	PrintToServer("WallClimbAdjacent Cleanup");
+void Wall_Climb_Adjacent_Cleanup(Bot mBot, Operation mOp, ArrayList hSequences, OOpData_Wall_Climb_Adjacent eOpData) {
+	PrintToServer("Wall_Climb_Adjacent Cleanup");
 }
 
 // Sequences
 
-OpRet WallClimbAdjacent_Walk(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
+OpRet Wall_Climb_Adjacent_Walk(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
 	mBot.SetMoveTo(eSeqData.vecDest);
 
 	int iEntity = mBot.iEntity;
@@ -269,7 +269,7 @@ OpRet WallClimbAdjacent_Walk(Bot mBot, Operation mOp, OpData_WallClimbAdjacent e
 	return OpRet_Continue;
 }
 
-OpRet WallClimbAdjacent_Aim_Align_Wall(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
+OpRet Wall_Climb_Adjacent_Aim_Align_Wall(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
 	int iEntity = mBot.iEntity;
 
 	float vecPos[3];
@@ -317,7 +317,7 @@ OpRet WallClimbAdjacent_Aim_Align_Wall(Bot mBot, Operation mOp, OpData_WallClimb
 	return OpRet_Continue;
 }
 
-OpRet WallClimbAdjacent_Shoot_Ground(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
+OpRet Wall_Climb_Adjacent_Shoot_Ground(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		mBot.GetAimTo(eOpData.vecWallAng);
 	}
@@ -332,15 +332,15 @@ OpRet WallClimbAdjacent_Shoot_Ground(Bot mBot, Operation mOp, OpData_WallClimbAd
 	vecAimAng[1] = NormalizeAngle(eOpData.vecWallAng[1] + 12.0);
 	mBot.SetAimTo(vecAimAng);
 
-// 	PrintToServer("WallClimbAdjacent_Shoot_Ground vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
+// 	PrintToServer("Wall_Climb_Adjacent_Shoot_Ground vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
 
 // 	eSeqData.fGroundShotTime = GetGameTime();
 
 	return OpRet_Handled;
 }
 
-OpRet WallClimbAdjacent_Shoot_Wall(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
-// 	PrintToServer("WallClimbAdjacent_Shoot_Wall vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
+OpRet Wall_Climb_Adjacent_Shoot_Wall(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
+// 	PrintToServer("Wall_Climb_Adjacent_Shoot_Wall vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
 // 	Abort(mOp, "Pause");
 // 	return OpRet_Abort;
 
@@ -387,8 +387,8 @@ OpRet WallClimbAdjacent_Shoot_Wall(Bot mBot, Operation mOp, OpData_WallClimbAdja
 	return OpRet_Continue;
 }
 
-OpRet WallClimbAdjacent_Shoot_Wall_Away(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
-// 	PrintToServer("WallClimbAdjacent_Shoot_Wall vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
+OpRet Wall_Climb_Adjacent_Shoot_Wall_Away(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
+// 	PrintToServer("Wall_Climb_Adjacent_Shoot_Wall vecAimAng=[%.1f %.1f %.1f]", eSeqData.vecWallAng[0], eSeqData.vecWallAng[1], eSeqData.vecWallAng[2]);
 // 	Abort(mOp, "Pause");
 // 	return OpRet_Abort;
 	int iEntity = mBot.iEntity;
@@ -584,7 +584,7 @@ OpRet WallClimbAdjacent_Shoot_Wall_Away(Bot mBot, Operation mOp, OpData_WallClim
 }
 
 
-OpRet WallClimbAdjacent_Airstrafe(Bot mBot, Operation mOp, OpData_WallClimbAdjacent eOpData, SeqData_WallClimbAdjacent eSeqData, float fStartTime) {
+OpRet Wall_Climb_Adjacent_Airstrafe(Bot mBot, Operation mOp, OOpData_Wall_Climb_Adjacent eOpData, SeqData_Wall_Climb_Adjacent eSeqData, float fStartTime) {
 	int iEntity = mBot.iEntity;
 	if (GetEntityFlags(iEntity) & FL_ONGROUND) {
 		return OpRet_Handled;

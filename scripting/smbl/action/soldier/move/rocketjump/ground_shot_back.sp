@@ -1,4 +1,4 @@
-enum struct OpData_Groundshot_Back {
+enum struct OpData_Ground_Shot_Back {
 	float vecStart[3];
 	float vecDest[3];
 	float fHeadingAng;
@@ -7,14 +7,14 @@ enum struct OpData_Groundshot_Back {
 	any aPadding[7];
 }
 
-enum struct SeqData_Groundshot_Back_PrepareRocketLauncher {
+enum struct SeqData_Ground_Shot_Back_PrepareRocketLauncher {
 	float fReloadCompleteTime;
 	any aPadding[15];
 }
 
 // Operation callbacks
 
-OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Groundshot_Back eOpData, bool bConfigureOnly) {
+OpRet Ground_Shot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSequences, ArrayList hSubOpRefs, OpData_Ground_Shot_Back eOpData, bool bConfigureOnly) {
 	int iEntity;
 
 	if (!bConfigureOnly) {
@@ -106,28 +106,28 @@ OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 	Sequence eSeq;
 
-	eSeq.fnRun = GroundShot_Back_PrepRocketLauncher;
+	eSeq.fnRun = Ground_Shot_Back_PrepRocketLauncher;
 	eSeq.sIdentifier = "Prep_Rocket_Launcher";
 	hSequences.PushArray(eSeq);
 
 	eSeq.iSeq = view_as<Seq>(1);
 
 	if (bStandingLaunch) {
-		eSeq.fnRun = GroundShot_Back_Start_Stand;
+		eSeq.fnRun = Ground_Shot_Back_Start_Stand;
 		eSeq.sIdentifier = "Start_Stand";
 	} else {
-		eSeq.fnRun = GroundShot_Back_Start_Walk;
+		eSeq.fnRun = Ground_Shot_Back_Start_Walk;
 		eSeq.sIdentifier = "Start_Walk";
 	}
 
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = GroundShot_Back_Shoot_Ground;
+	eSeq.fnRun = Ground_Shot_Back_Shoot_Ground;
 	eSeq.iSeq = view_as<Seq>(2);
 	eSeq.sIdentifier = "Shoot_Ground";
 	hSequences.PushArray(eSeq);
 
-	eSeq.fnRun = GroundShot_Back_Face_Heading;
+	eSeq.fnRun = Ground_Shot_Back_Face_Heading;
 	eSeq.iSeq = view_as<Seq>(3);
 	eSeq.sIdentifier = "Face_Heading";
 	hSequences.PushArray(eSeq);
@@ -137,7 +137,7 @@ OpRet GroundShot_Back_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Array
 
 // Sequences
 
-OpRet GroundShot_Back_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Groundshot_Back eOpData, SeqData_Groundshot_Back_PrepareRocketLauncher eSeqData, float fStartTime) {
+OpRet Ground_Shot_Back_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Ground_Shot_Back eOpData, SeqData_Ground_Shot_Back_PrepareRocketLauncher eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		mBot.SwitchWeapon(TFWeaponSlot_Primary);
 	}
@@ -166,7 +166,7 @@ OpRet GroundShot_Back_PrepRocketLauncher(Bot mBot, Operation mOp, OpData_Grounds
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Back_Start_Stand(Bot mBot, Operation mOp, OpData_Groundshot_Back eOpData, SeqData eSeqData, float fStartTime) {
+OpRet Ground_Shot_Back_Start_Stand(Bot mBot, Operation mOp, OpData_Ground_Shot_Back eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		mBot.GetAimTo(vecAimAng);
@@ -185,7 +185,7 @@ OpRet GroundShot_Back_Start_Stand(Bot mBot, Operation mOp, OpData_Groundshot_Bac
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Back_Start_Walk(Bot mBot, Operation mOp, OpData_Groundshot_Back eOpData, SeqData eSeqData, float fStartTime) {
+OpRet Ground_Shot_Back_Start_Walk(Bot mBot, Operation mOp, OpData_Ground_Shot_Back eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		vecAimAng[0] = eOpData.fShootPitchAng;
@@ -226,7 +226,7 @@ OpRet GroundShot_Back_Start_Walk(Bot mBot, Operation mOp, OpData_Groundshot_Back
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Back_Shoot_Ground(Bot mBot, Operation mOp, OpData_Groundshot_Back eOpData, SeqData eSeqData, float fStartTime) {
+OpRet Ground_Shot_Back_Shoot_Ground(Bot mBot, Operation mOp, OpData_Ground_Shot_Back eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		vecAimAng[0] = eOpData.fShootPitchAng;
@@ -249,7 +249,7 @@ OpRet GroundShot_Back_Shoot_Ground(Bot mBot, Operation mOp, OpData_Groundshot_Ba
 	return OpRet_Continue;
 }
 
-OpRet GroundShot_Back_Face_Heading(Bot mBot, Operation mOp, OpData_Groundshot_Back eOpData, SeqData eSeqData, float fStartTime) {
+OpRet Ground_Shot_Back_Face_Heading(Bot mBot, Operation mOp, OpData_Ground_Shot_Back eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
 		vecAimAng[1] = eOpData.fHeadingAng;

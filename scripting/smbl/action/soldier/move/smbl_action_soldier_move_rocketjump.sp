@@ -41,13 +41,13 @@
 #define GROUND_START_TIME		WALK_TIME + LAUNCHER_AIM_TIME + ROCKET_BLAST_TIME
 
 enum RocketJumpType {
-	RocketJumpType_Groundshot_Back,
-	RocketJumpType_Groundshot_Down
+	RocketJumpType_Ground_Shot_Back,
+	RocketJumpType_Ground_Shot_Down
 }
 
 char g_sRocketJumpIdentifiers[][] = {
-	"Soldier.Move.RocketJump.GroundShot.Back",
-	"Soldier.Move.RocketJump.GroundShot.Down"
+	"Soldier.Move.RocketJump.Ground.Shot.Back",
+	"Soldier.Move.RocketJump.Ground.Shot.Down"
 };
 
 enum struct OpData_RocketJump {
@@ -58,10 +58,10 @@ enum struct OpData_RocketJump {
 
 ConVar g_hCVGravity;
 
-#include "rocketjump/wallclimb.sp"
-#include "rocketjump/wallclimb_adjacent.sp"
-#include "rocketjump/groundshot_back.sp"
-#include "rocketjump/groundshot_down.sp"
+#include "rocketjump/wall_climb.sp"
+#include "rocketjump/wall_climb_adjacent.sp"
+#include "rocketjump/ground_shot_back.sp"
+#include "rocketjump/ground_shot_down.sp"
 
 public Plugin myinfo = {
 	name = "SMBL Soldier Actions Library: Rocket Jump",
@@ -88,21 +88,21 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
-	Operation.Register("Soldier.Move.RocketJump.WallClimb")
-		.Init(WallClimb_Init)
+	Operation.Register("Soldier.Move.RocketJump.Wall.Climb")
+		.Init(Wall_Climb_Init)
 		.Suspend(UnsupportedFunction)
-		.Cleanup(WallClimb_Cleanup);
+		.Cleanup(Wall_Climb_Cleanup);
 
-	Operation.Register("Soldier.Move.RocketJump.WallClimbAdjacent")
-		.Init(WallClimbAdjacent_Init)
+	Operation.Register("Soldier.Move.RocketJump.Wall.Climb.Adjacent")
+		.Init(Wall_Climb_Adjacent_Init)
 		.Suspend(UnsupportedFunction)
-		.Cleanup(WallClimbAdjacent_Cleanup);
+		.Cleanup(Wall_Climb_Adjacent_Cleanup);
 
-	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Back])
-		.Init(GroundShot_Back_Init);
+	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Ground_Shot_Back])
+		.Init(Ground_Shot_Back_Init);
 
-	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Down])
-		.Init(GroundShot_Down_Init);
+	Operation.Register(g_sRocketJumpIdentifiers[RocketJumpType_Ground_Shot_Down])
+		.Init(Ground_Shot_Down_Init);
 
 	// Auto dispatch wrapper
 #if defined DEBUG
@@ -239,10 +239,10 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		hGroundShotInitParams.JumpToKey(OP_INIT_CONFIG, true);
 		hGroundShotInitParams.SetFloat("heading", vecAng[1]);
 
-		if (StrEqual(sIdentifier, g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Down])) {
+		if (StrEqual(sIdentifier, g_sRocketJumpIdentifiers[RocketJumpType_Ground_Shot_Down])) {
 			hGroundShotInitParams.SetFloat("start_speed", hInitParams.GetFloat("start_speed"));
 			hGroundShotInitParams.SetFloat("shot_delay", hInitParams.GetFloat("shot_delay"));
-		} else if (StrEqual(sIdentifier, g_sRocketJumpIdentifiers[RocketJumpType_Groundshot_Back])) {
+		} else if (StrEqual(sIdentifier, g_sRocketJumpIdentifiers[RocketJumpType_Ground_Shot_Back])) {
 			hGroundShotInitParams.SetFloat("yaw", hInitParams.GetFloat("yaw"));
 			hGroundShotInitParams.SetFloat("pitch", hInitParams.GetFloat("pitch"));
 			hGroundShotInitParams.SetNum("standing_launch", hInitParams.GetNum("standing_launch"));
@@ -258,11 +258,11 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		RocketJumpType iPriortyRocketJumpType, iBackupRocketJumpType;
 
 		if (bHeightPriority) {
-			iPriortyRocketJumpType = RocketJumpType_Groundshot_Down;
-			iBackupRocketJumpType = RocketJumpType_Groundshot_Back;
+			iPriortyRocketJumpType = RocketJumpType_Ground_Shot_Down;
+			iBackupRocketJumpType = RocketJumpType_Ground_Shot_Back;
 		} else {
-			iPriortyRocketJumpType = RocketJumpType_Groundshot_Back;
-			iBackupRocketJumpType = RocketJumpType_Groundshot_Down;
+			iPriortyRocketJumpType = RocketJumpType_Ground_Shot_Back;
+			iBackupRocketJumpType = RocketJumpType_Ground_Shot_Down;
 		}
 
 		KeyValues hGroundShotInitParams = new KeyValues(OP_INIT_PARAM);
@@ -290,11 +290,11 @@ OpRet RocketJump_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList 
 		hGroundShotInitParams.JumpToKey(OP_INIT_CONFIG);
 
 		switch (iRocketJumpType) {
-			case RocketJumpType_Groundshot_Down: {
+			case RocketJumpType_Ground_Shot_Down: {
 				hInitParams.SetFloat("start_speed", hGroundShotInitParams.GetFloat("start_speed"));
 				hInitParams.SetFloat("shot_delay", hGroundShotInitParams.GetFloat("shot_delay"));
 			}
-			case RocketJumpType_Groundshot_Back: {
+			case RocketJumpType_Ground_Shot_Back: {
 				hInitParams.SetFloat("yaw", hGroundShotInitParams.GetFloat("yaw"));
 				hInitParams.SetFloat("pitch", hGroundShotInitParams.GetFloat("pitch"));
 				hInitParams.SetNum("standing_launch", hGroundShotInitParams.GetNum("standing_launch"));
