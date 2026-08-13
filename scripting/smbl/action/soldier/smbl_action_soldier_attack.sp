@@ -143,7 +143,7 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 		hTestInitParams.SetNum("airbrake", true);
 	}
 
-	if (!Operation.Configure("Soldier.Move.RocketJump", hTestInitParams)) {
+	if (!Operation.Configure("Soldier.Move.RocketJump.Ground.Shot", hTestInitParams)) {
 		delete hTestInitParams;
 		PrintToServer("target not reachable with rocket jump");
 		return mOp._Abort("target not reachable with rocket jump");
@@ -154,7 +154,7 @@ OpRet MarketGarden_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayLis
 	}
 
 	KeyValues hRocketJumpInitParams;
-	Operation mRocketJumpOp = Operation.Instance("Soldier.Move.RocketJump", hRocketJumpInitParams);
+	Operation mRocketJumpOp = Operation.Instance("Soldier.Move.RocketJump.Ground.Shot", hRocketJumpInitParams);
 
 	hRocketJumpInitParams.Import(hTestInitParams);
 	delete hTestInitParams;

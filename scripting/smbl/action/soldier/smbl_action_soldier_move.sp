@@ -64,7 +64,7 @@ public void SMBL_OnStart() {
 }
 
 public void SMBL_NavMesh_OnCache() {
-	NavMesh.RegisterCache("Soldier.Move.RocketJump", NavCacheableFunc_RocketJump);
+	NavMesh.RegisterCache("Soldier.Move.RocketJump.Ground.Shot", NavCacheableFunc_RocketJump_Ground_Shot);
 }
 
 // Operation callbacks
@@ -254,7 +254,7 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 		for (int j=i; j<iPathLength; j++) {
 			mNavPath.Get(j, mNode, _, _, iExitAttachmentFlags, mEdgeData, _, vecFocalPoint);
 
-			if (!mNavMesh.LookupCache("Soldier.Move.RocketJump", mPrevNode, mNode)) {
+			if (!mNavMesh.LookupCache("Soldier.Move.RocketJump.Ground.Shot", mPrevNode, mNode)) {
 				break;
 			}
 
@@ -265,7 +265,7 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 			mNavPath.Get(iRocketJumpDestinationIdx, mNode, _, _, iExitAttachmentFlags, _, _, vecFocalPoint);
 
 			KeyValues hFarthestInitParams = new KeyValues(OP_INIT_DISPATCH);
-			mNavMesh.LookupCache("Soldier.Move.RocketJump", mPrevNode, mNode, hFarthestInitParams);
+			mNavMesh.LookupCache("Soldier.Move.RocketJump.Ground.Shot", mPrevNode, mNode, hFarthestInitParams);
 
 			if (!hFarthestInitParams.GotoFirstSubKey(true)) {
 				return mOp._Abort("cannot find cached init parameters");
@@ -300,7 +300,7 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 				hParameterizeSubOpInitParams.SetVector("destination", vecRocketJumpOrigin); // Walk to rocket jump starting position
 				hParameterizeSubOpInitParams.GoBack();
 
-				// Soldier.Move.RocketJump init param overrides
+				// Soldier.Move.RocketJump.Ground.Shot init param overrides
 				hParameterizeSubOpInitParams.JumpToKey("2", true);
 				hParameterizeSubOpInitParams.Import(hFarthestInitParams);
 				hParameterizeSubOpInitParams.GoBack();
@@ -327,7 +327,7 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 			hParameterizeSubOpInitParams.SetNum("1", view_as<int>(mWalkSubOp));
 
 			KeyValues hRocketJumpInitParams;
-			Operation mRocketJumpSubOp = Operation.Instance("Soldier.Move.RocketJump", hRocketJumpInitParams, iOp++);
+			Operation mRocketJumpSubOp = Operation.Instance("Soldier.Move.RocketJump.Ground.Shot", hRocketJumpInitParams, iOp++);
 
 			hRocketJumpInitParams.SetNum("decelerate", true);
 			hRocketJumpInitParams.SetNum("airbrake", true);
@@ -390,7 +390,7 @@ public float CostFunc_Move(NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode
 	}
 
 	if (iAttachmentFlags & (FL_ATTACH_AIR_GAP | FL_ATTACH_WALL)) {
-		if (mNavMesh.LookupCache("Soldier.Move.RocketJump", mNodeA, mNodeB)) {
+		if (mNavMesh.LookupCache("Soldier.Move.RocketJump.Ground.Shot", mNodeA, mNodeB)) {
 			return 0.75*GetVectorDistance2D(vecPosA, vecPosB);
 		}
 
@@ -408,7 +408,7 @@ public void LocalDataPackCleanupFunc_Cleanup(LocalDataPack mLocalDataPack) {
 	}
 }
 
-public bool NavCacheableFunc_RocketJump(NavNode mNodeA, NavNode mNodeB, KeyValues hKVData) {
+public bool NavCacheableFunc_RocketJump_Ground_Shot(NavNode mNodeA, NavNode mNodeB, KeyValues hKVData) {
 	float vecNodeAOrigin[3];
 	mNodeA.GetOrigin(vecNodeAOrigin);
 
@@ -507,13 +507,13 @@ KeyValues GetRocketJumpDispatchToNode(float vecStart[3], NavNode mEndNode) {
 
 KeyValues GetRocketJumpDispatch(float vecStart[3], float vecDest[3]) {
 	KeyValues hInitParams = new KeyValues(OP_INIT_DISPATCH);
-	hInitParams.SetString(OP_INIT_IDENT, "Soldier.Move.RocketJump");
+	hInitParams.SetString(OP_INIT_IDENT, "Soldier.Move.RocketJump.Ground.Shot");
 	hInitParams.JumpToKey(OP_INIT_PARAM, true);
 
 	hInitParams.SetVector("origin", vecStart);
 	hInitParams.SetVector("destination", vecDest);
 
-	if (Operation.Configure("Soldier.Move.RocketJump", hInitParams)) {
+	if (Operation.Configure("Soldier.Move.RocketJump.Ground.Shot", hInitParams)) {
 		hInitParams.Rewind();
 		return hInitParams;
 	}
