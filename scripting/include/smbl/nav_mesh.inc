@@ -201,8 +201,8 @@ methodmap NavMesh {
 	public static native NavMesh Instance();
 	public static native void Destroy(NavMesh mNavMesh);
 
-	public static native NavMesh LoadNavFile(char[] sFilePath);
-	public static native bool SaveNavFile(NavMesh mNavMesh, char[] sFilePath);
+	public static native NavMesh LoadNavFile(char[] sFilePath, char[] sError=NULL_STRING, int iMaxErrorLength=0);
+	public static native bool SaveNavFile(NavMesh mNavMesh, char[] sFilePath, char[] sError=NULL_STRING, int iMaxErrorLength=0);
 
 	public static native bool RegisterCache(char[] sBucketName, Function fnNavCacheableFunc);
 	public static native bool DeregisterCache(char[] sBucketName=NULL_STRING);

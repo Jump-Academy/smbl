@@ -1514,14 +1514,33 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 
 	File hFile = OpenFile(sFilePath, "rb");
 	if (hFile == null) {
-		LogError("Cannot open file for reading: %s", sFilePath);
+		char sError[32+PLATFORM_MAX_PATH];
+		FormatEx(sError, sizeof(sError), "Cannot open file for reading: %s", sFilePath);
+
+		LogError(sError);
+
+		int iMaxErrorLength = GetNativeCell(3);
+		if (iMaxErrorLength && !IsNativeParamNullString(2)) {
+			SetNativeString(2, sError, iMaxErrorLength);
+		}
+
 		return NULL_NAV_MESH;
 	}
 
 	char sIdentifier[8];
 	if (hFile.ReadString(sIdentifier, sizeof(sIdentifier)) == -1 || !StrEqual("SMBLNAV", sIdentifier)) {
-		LogError("Not a SMBL nav file: %s %s", sIdentifier, sFilePath);
+		char sError[32+PLATFORM_MAX_PATH];
+		FormatEx(sError, sizeof(sError), "Not a SMBL nav file: %s", sFilePath);
+
+		LogError(sError);
+
 		delete hFile;
+
+		int iMaxErrorLength = GetNativeCell(3);
+		if (iMaxErrorLength && !IsNativeParamNullString(2)) {
+			SetNativeString(2, sError, iMaxErrorLength);
+		}
+
 		return NULL_NAV_MESH;
 	}
 
@@ -1550,7 +1569,15 @@ public any Native_NavMesh_LoadNavFile(Handle hPlugin, int iArgC) {
 	char sFileMapName[32];
 	hFile.ReadString(sFileMapName, sizeof(sFileMapName));
 	if (!StrEqual(sMapName, sFileMapName, false)) {
-		PrintToServer("[SMBL] Warning: Map mismatch (%s): %s", sFileMapName, sFilePath);
+		char sError[64+PLATFORM_MAX_PATH];
+		FormatEx(sError, sizeof(sError), "Warning: Map mismatch (%s): %s", sFileMapName, sFilePath);
+
+		int iMaxErrorLength = GetNativeCell(3);
+		if (iMaxErrorLength && !IsNativeParamNullString(2)) {
+			SetNativeString(2, sError, iMaxErrorLength);
+		}
+
+		PrintToServer("[SMBL] %s", sError);
 	}
 
 	eNavMesh.sMapName = sFileMapName;
@@ -1653,7 +1680,16 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 
 	File hFile = OpenFile(sFilePath, "wb");
 	if (hFile == null) {
-		LogError("Cannot open file for writing: %s", sFilePath);
+		char sError[32+PLATFORM_MAX_PATH];
+		FormatEx(sError, sizeof(sError), "Cannot open file for writing: %s", sFilePath);
+
+		LogError(sError);
+
+		int iMaxErrorLength = GetNativeCell(3);
+		if (iMaxErrorLength && !IsNativeParamNullString(2)) {
+			SetNativeString(2, sError, iMaxErrorLength);
+		}
+
 		return false;
 	}
 
