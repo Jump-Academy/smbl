@@ -1783,8 +1783,6 @@ public int Native_NavMesh_SaveNavFile(Handle hPlugin, int iArgC) {
 		}
 	}
 
-	delete hNavNodes;
-
 	hFile.Flush();
 
 	delete hFile;
