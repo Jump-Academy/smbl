@@ -33,9 +33,9 @@
 #define MAX_VERTICES		8
 #define DEFAULT_VERTICES	4
 
-#define MIN_SNAP_GRID		5
-#define MAX_SNAP_GRID		25
-#define SNAP_GRID_INCREMENT	5
+#define MIN_SNAP_GRID		1
+#define MAX_SNAP_GRID		16
+#define SNAP_GRID_INCREMENT	2
 
 #define NODE_PROXIMITY	500.0
 
@@ -1440,9 +1440,13 @@ public int MenuHandler_NavEdit(Menu hMenu, MenuAction iAction, int iClient, int 
 					}
 				}
 				case 4: {
-					g_eNavEdit[iClient].iSnapToGrid += SNAP_GRID_INCREMENT;
-					if (g_eNavEdit[iClient].iSnapToGrid > MAX_SNAP_GRID) {
-						g_eNavEdit[iClient].iSnapToGrid = 0;
+					if (g_eNavEdit[iClient].iSnapToGrid == 0) {
+						g_eNavEdit[iClient].iSnapToGrid = 1;
+					} else {
+						g_eNavEdit[iClient].iSnapToGrid *= SNAP_GRID_INCREMENT;
+						if (g_eNavEdit[iClient].iSnapToGrid > MAX_SNAP_GRID) {
+							g_eNavEdit[iClient].iSnapToGrid = 0;
+						}
 					}
 					
 					SendNavEditPanel(iClient);
