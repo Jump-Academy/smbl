@@ -66,20 +66,26 @@ enum struct _NavNode {
 		vecPoint[2] = this.vecEdgeCenters[iOffset+2];
 	}
 
-	void GetEdgeVertices(int iEdge, float vecVertexA[3], float vecVertexB[3]) {
+	void GetEdgeVertices(int iEdge, float vecVertexA[3], float vecVertexB[3], int &iVertexA=-1, int &iVertexB=-1) {
 		int iOffset = 3*iEdge;
 		vecVertexA[0] = this.vecVertices[iOffset  ];
 		vecVertexA[1] = this.vecVertices[iOffset+1];
 		vecVertexA[2] = this.vecVertices[iOffset+2];
 
+		iVertexA = iEdge;
+
 		if (iEdge == this.iVertices-1) {
 			vecVertexB[0] = this.vecVertices[0];
 			vecVertexB[1] = this.vecVertices[1];
 			vecVertexB[2] = this.vecVertices[2];
+
+			iVertexB = 0;
 		} else {
 			vecVertexB[0] = this.vecVertices[iOffset+3];
 			vecVertexB[1] = this.vecVertices[iOffset+4];
 			vecVertexB[2] = this.vecVertices[iOffset+5];
+
+			iVertexB = iEdge+1;
 		}
 	}
 
@@ -927,10 +933,13 @@ public int Native_NavNode_GetEdgeVertices(Handle hPlugin, int iArgC) {
 	g_hNavNodes.GetArray(iThis, eNavNode);
 
 	float vecVertexA[3], vecVertexB[3];
-	eNavNode.GetEdgeVertices(iEdge, vecVertexA,vecVertexB);
+	int iVertexA, iVertexB;
+	eNavNode.GetEdgeVertices(iEdge, vecVertexA,vecVertexB, iVertexA, iVertexB);
 
 	SetNativeArray(3, vecVertexA, sizeof(vecVertexA));
 	SetNativeArray(4, vecVertexB, sizeof(vecVertexB));
+	SetNativeCellRef(5, iVertexA);
+	SetNativeCellRef(6, iVertexB);
 
 	return 0;
 }

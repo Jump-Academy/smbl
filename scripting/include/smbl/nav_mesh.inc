@@ -153,7 +153,7 @@ methodmap NavNode {
 	public native void GetVertexAngles(int iVertex, float vecAngles[3]);
 
 	public native void GetEdgeCenter(int iEdge, float vecPoint[3]);
-	public native void GetEdgeVertices(int iEdge, float vecVertexA[3], float vecVertexB[3]);
+	public native void GetEdgeVertices(int iEdge, float vecVertexA[3], float vecVertexB[3], int &iVertexA=-1, int &iVertexB=-1);
 	public native void GetEdgeOverlap(int iEdge, NavNode mOtherNode, int iOtherEdge, float vecVertexA[3], float vecVertexB[3]);
 	public native float GetNearestEdgeProjection(float vecInteralPoint[3], float vecEdgeProj[3], int &iEdge=-1, int &iAttachment, int iAttachmentFlags=0, float vecDirection[3]=NULL_VECTOR);
 	public native float GetHullProjection(float vecPoint[3], float vecHullPoint[3], int &iEdge=-1);
