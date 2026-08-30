@@ -1001,24 +1001,26 @@ int CountSetBits(int i) {
 	return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
-bool LoadNavFile(char[] sFileName) {
+bool LoadNavFile(char[] sFileName, char[] sError, int iMaxErrorLength) {
 	char sFilePath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.snav", sFileName);
 	
-	if (g_mNavMesh) {
-		NavMesh.Destroy(g_mNavMesh);
+	NavMesh.Destroy(g_mNavMesh);
+
+	if (!FileExists(sFilePath)) {
+		return false;
 	}
 
-	g_mNavMesh = NavMesh.LoadNavFile(sFilePath);
+	g_mNavMesh = NavMesh.LoadNavFile(sFilePath, sError, iMaxErrorLength);
 
-	return true;
+	return g_mNavMesh != NULL_NAV_MESH;
 }
 
-bool SaveNavFile(char[] sFileName) {
+bool SaveNavFile(char[] sFileName, char[] sError, int iMaxErrorLength) {
 	char sFilePath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, sFilePath, sizeof(sFilePath), "data/smbl/nav/%s.snav", sFileName);
 
-	return NavMesh.SaveNavFile(g_mNavMesh, sFilePath);
+	return NavMesh.SaveNavFile(g_mNavMesh, sFilePath, sError, iMaxErrorLength);
 }
 
 // Commands
@@ -1046,11 +1048,16 @@ public Action cmdNavEditLoad(int iClient, int iArgC) {
 		GetCmdArg(1, sFileName, sizeof(sFileName));
 	}
 
-	ReplyToCommand(iClient, "[SMBL] Loading nav mesh from: %s.snav", sFileName);
-	
-	if (!LoadNavFile(sFileName)) {
-		ReplyToCommand(iClient, "[SMBL] Failed.");
+	char sError[64+PLATFORM_MAX_PATH];
+	if (LoadNavFile(sFileName, sError, sizeof(sError))) {
+		ReplyToCommand(iClient, "[SMBL] Loaded nav mesh");
+		return Plugin_Handled;
+	} else if (sError[0]) {
+		ReplyToCommand(iClient, "[SMBL] Failed to load nav mesh (%s)", sError);
+		return Plugin_Handled;
 	}
+
+	ReplyToCommand(iClient, "[SMBL] No nav mesh to load");
 
 	return Plugin_Handled;
 }
@@ -1064,10 +1071,12 @@ public Action cmdNavEditSave(int iClient, int iArgC) {
 		GetCmdArg(1, sFileName, sizeof(sFileName));
 	}
 
-	ReplyToCommand(iClient, "[SMBL] Saving nav mesh to: %s.snav", sFileName);
+	char sError[64+PLATFORM_MAX_PATH];
 
-	if (!SaveNavFile(sFileName)) {
-		ReplyToCommand(iClient, "[SMBL] Failed.");
+	if (SaveNavFile(sFileName, sError, sizeof(sError))) {
+		ReplyToCommand(iClient, "[SMBL] Saved nav mesh");
+	} else {
+		ReplyToCommand(iClient, "[SMBL] Failed to save nav mesh (%s)", sError);
 	}
 
 	return Plugin_Handled;
