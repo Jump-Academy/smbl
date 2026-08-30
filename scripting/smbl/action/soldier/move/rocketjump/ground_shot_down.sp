@@ -18,15 +18,15 @@ enum struct SeqData_Ground_Shot_Down {
 
 // Sorted by decreasing max distance on flat ground
 static float g_fGroundShotParams[][] = {
-//	  Delay    Vel2D     VelZ
-	{0.0000, 323.1305, 928.9940},
-	{0.0151, 254.5355, 892.3454},
-	{0.0757, 272.5390, 767.2135},
-	{0.1666, 284.3861, 643.0847},
-	{0.5909, 287.5218, 428.9412},
-	{0.6666, 261.8510, 424.6311},
-	{0.6818, 216.6229, 424.8501},
-	{0.7424, 149.8582, 392.7835}
+//	  Delay    Vel2D     VelZ        Max Height (default gravity)
+	{0.0000, 323.1305, 928.9940}, //  539.3937
+	{0.0151, 254.5355, 892.3454}, //  497.6752
+	{0.0757, 272.5390, 767.2135}, //  367.8853
+	{0.1666, 284.3861, 643.0847}, //  258.4737
+	{0.5909, 287.5218, 428.9412}, //  114.9940
+	{0.6666, 261.8510, 424.6311}, //  112.6947
+	{0.6818, 216.6229, 424.8501}, //  112.8110
+	{0.7424, 149.8582, 392.7835}  //   96.4243
 };
 
 #define MIN_WALK_TIME		0.15
@@ -101,7 +101,9 @@ OpRet Ground_Shot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Arra
 
 		hInitParams.GoBack(); // from OP_INIT_CONFIG
 	} else {
-		switch (FindParameters(vecOrigin, vecDest, fStartSpeed, fShotDelay, fHeadingAng)) {
+		bool bStandingLaunch = hInitParams.GetNum("standing_launch", false) != 0;
+
+		switch (FindParameters(iEntity, vecOrigin, vecDest, fStartSpeed, fShotDelay, fHeadingAng, bStandingLaunch)) {
 			case -1: {
 				hInitParams.GoBack(); // from OP_INIT_CONFIG
 				return mOp._Abort("destination not reachable")
@@ -115,7 +117,14 @@ OpRet Ground_Shot_Down_Init(Bot mBot, Operation mOp, KeyValues hInitParams, Arra
 		hInitParams.JumpToKey(OP_INIT_CONFIG, true);
 		hInitParams.SetFloat("start_speed", fStartSpeed);
 		hInitParams.SetFloat("shot_delay", fShotDelay);
-		hInitParams.SetFloat("heading", fHeadingAng);
+
+		if (hInitParams.JumpToKey("heading")) {
+			hInitParams.GoBack(); // from OP_INIT_CONFIG
+			fHeadingAng = hInitParams.GetFloat(NULL_STRING);
+		} else {
+			hInitParams.SetFloat("heading", fHeadingAng);
+		}
+
 		hInitParams.GoBack(); // from OP_INIT_CONFIG
 	}
 
@@ -235,11 +244,15 @@ OpRet Ground_Shot_Down_Shoot_Ground(Bot mBot, Operation mOp, OpData_Ground_Shot_
 OpRet Ground_Shot_Down_Face_Heading(Bot mBot, Operation mOp, OpData_Ground_Shot_Down eOpData, SeqData eSeqData, float fStartTime) {
 	if (!fStartTime) {
 		float vecAimAng[3];
+		mBot.GetAimTo(vecAimAng);
 		vecAimAng[1] = eOpData.fHeadingAng;
 
 		mBot.SetAimTo(vecAimAng);
 		mBot.SetPID(PID_FAST_PREC);
 	}
+
+	mBot.iButtons = IN_DUCK | IN_RIGHT;
+	mBot.SetLocalVelocity({0.0, 400.0, 0.0});
 
 	float fTime = GetGameTime();
 	if (fStartTime && fTime-fStartTime > ROCKET_BLAST_TIME) {
@@ -251,7 +264,7 @@ OpRet Ground_Shot_Down_Face_Heading(Bot mBot, Operation mOp, OpData_Ground_Shot_
 
 // Helpers
 
-static int FindParameters(float vecOrigin[3], float vecDest[3], float &fMinSpeed, float &fDelay, float &fHeadingAng) {
+static int FindParameters(int iEntity, float vecOrigin[3], float vecDest[3], float &fMinSpeed, float &fDelay, float &fHeadingAng, bool bStandingLaunch) {
 	float vecDiff[3];
 	SubtractVectors(vecDest, vecOrigin, vecDiff);
 
@@ -275,6 +288,27 @@ static int FindParameters(float vecOrigin[3], float vecDest[3], float &fMinSpeed
 			fDelay = g_fGroundShotParams[4][0];
 
 			return 0;
+		}
+
+		if (bStandingLaunch) {
+			// Minimize overshooting by using slowest vertical speed that can still reach destination
+
+			int iSlowestIdx = -1;
+			for (int i=0; i<sizeof(g_fGroundShotParams) && GetMaxHeight(iEntity, g_fGroundShotParams[i][2]) >= vecDiff[2]; i++) {
+				iSlowestIdx = i;
+			}
+
+			if (iSlowestIdx != -1) {
+				float vecAimAng[3];
+				GetVectorAngles(vecDiff, vecAimAng);
+
+				fHeadingAng = vecAimAng[1];
+				fMinSpeed = 0.0;
+				fDelay = g_fGroundShotParams[iSlowestIdx][0];
+				return 0;
+			}
+
+			return -1;
 		}
 	}
 

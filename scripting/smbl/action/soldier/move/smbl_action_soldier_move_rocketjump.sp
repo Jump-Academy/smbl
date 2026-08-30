@@ -194,3 +194,26 @@ void ShiftGroundPosition2D(float vecStartPos[3], float vecDir[3], float fSpeed, 
 	vecEndPos[1] = vecStartPos[1] + fMoveDist*vecDir[1];
 	vecEndPos[2] = vecStartPos[2];
 }
+
+float GetMaxHeight(int iEntity, float fInitialZSpeed) {
+	float fEntityGravityRatio = GetEntityGravity(iEntity);
+	if (fEntityGravityRatio == 0.0) {
+		fEntityGravityRatio = 1.0;
+	}
+
+	float fGravity = -g_hCVGravity.FloatValue * fEntityGravityRatio;
+
+	/*
+	 * Kinematic equations
+	 * 
+	 * vf = v0 + g*t
+	 * ->    0 = v0 + g*t   (vf=0 at peak)
+	 * -> -g*t = v0
+	 * ->    t = -v0 / g
+	 *
+	 * d = v0*t + 0.5*g*t^2
+	*/
+	float fTime = -fInitialZSpeed / fGravity;
+
+	return fInitialZSpeed*fTime + 0.5*fGravity*fTime*fTime;
+}
