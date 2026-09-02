@@ -46,6 +46,8 @@ enum struct _Operation {
 	ArrayList hSequences;	// Sequence
 	ArrayList hSubOpRefs;	// Operation references
 
+	Op iLastSubOp;
+
 	float fStartTime;
 	OpData eOpData;
 
@@ -992,6 +994,11 @@ public any Native_Operation_AddSubOperation(Handle hPlugin, int iArgC) {
 		m_hOperations.Set(view_as<int>(mSubOp)-1, mBot, _Operation::mBot);
 	}
 
+	Op iOp = m_hOperations.Get(iThis, _Operation::iLastSubOp) + 1;
+
+	m_hOperations.Set(view_as<int>(mSubOp)-1, iOp, _Operation::iOp);
+	m_hOperations.Set(iThis, iOp, _Operation::iLastSubOp);
+
 	return true;
 }
 
@@ -1632,6 +1639,8 @@ public any Native_Operation_Instance(Handle hPlugin, int iArgC) {
 		if (eOperationTemplate.bHasSubOps) {
 			eOp.hSubOpRefs = new ArrayList();
 		}
+
+		eOp.iLastSubOp = Op_Invalid;
 
 		eOp.fnValidate = eOperationTemplate.fnValidate;
 		eOp.fnInit = eOperationTemplate.fnInit;
