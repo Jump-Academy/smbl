@@ -72,6 +72,9 @@ typedef OpStepFwd = function OpRet (Bot mBot, Operation mOp);
 typedef OpAbortFwd = function void (Bot mBot, Operation mOp, char[] sError);
 
 stock OpRet UnsupportedFunction(Bot mBot, Operation mOp, OpData eOpData) {
+	#pragma unused mBot
+	#pragma unused mOp
+	#pragma unused eOpData
 	return OpRet_Abort;
 }
 
