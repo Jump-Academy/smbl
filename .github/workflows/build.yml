@@ -65,25 +65,25 @@ jobs:
     - name: Build plugins
       working-directory: ./scripting
       run: |
-        spcomp -iincludes smbl.sp                                                         -o ../plugins/smbl.smx
-        spcomp -iincludes smbl/action/common/smbl_action_common_idle.sp                   -o ../plugins/smbl/action/common/smbl_action_common_idle.smx
-        spcomp -iincludes smbl/action/common/smbl_action_common_move.sp                   -o ../plugins/smbl/action/common/smbl_action_common_move.smx
-        spcomp -iincludes smbl/action/common/smbl_action_common_attack.sp                 -o ../plugins/smbl/action/common/smbl_action_common_attack.smx
-        spcomp -iincludes smbl/action/soldier/smbl_action_soldier_attack.sp               -o ../plugins/smbl/action/soldier/smbl_action_soldier_attack.smx
-        spcomp -iincludes smbl/action/soldier/smbl_action_soldier_move.sp                 -o ../plugins/smbl/action/soldier/smbl_action_soldier_move.smx
-        spcomp -iincludes smbl/action/soldier/move/smbl_action_soldier_move_rocketjump.sp -o ../plugins/smbl/action/soldier/move/smbl_action_soldier_move_rocketjump.smx
-        spcomp -iincludes smbl/action/utility/smbl_action_utility.sp                      -o ../plugins/smbl/action/utility/smbl_action_utility.smx
-        spcomp -iincludes smbl/controller/all/smbl_controller_all_generic.sp              -o ../plugins/smbl/controller/all/smbl_controller_all_generic.smx
-        spcomp -iincludes smbl/controller/soldier/smbl_controller_soldier_trolldier.sp    -o ../plugins/smbl/controller/soldier/smbl_controller_soldier_trolldier.smx
-        spcomp -iincludes smbl/director/smbl_director_debug.sp                            -o ../plugins/smbl/director/smbl_director_debug.smx
-        spcomp -iincludes smbl/gamemode/smbl_gamemode_mga.sp                              -o ../plugins/smbl/gamemode/smbl_gamemode_mga.smx
-        spcomp -iincludes smbl/monitor/smbl_monitor_targetacquisition_fov.sp              -o ../plugins/smbl/monitor/smbl_monitor_targetacquisition_fov.smx
-        spcomp -iincludes smbl/navigation/smbl_nav_mesh.sp                                -o ../plugins/smbl/navigation/smbl_nav_mesh.smx
-        spcomp -iincludes smbl/navigation/smbl_nav_mesh_editor.sp                         -o ../plugins/smbl/navigation/smbl_nav_mesh_editor.smx
-        spcomp -iincludes smbl/observable/smbl_observable_player_events.sp                -o ../plugins/smbl/observable/smbl_observable_player_events.smx
-        spcomp -iincludes smbl/process/smbl_process_combat.sp                             -o ../plugins/smbl/process/smbl_process_combat.smx
-        spcomp -iincludes smbl/process/smbl_process_idle.sp                               -o ../plugins/smbl/process/smbl_process_idle.smx
-        spcomp -iincludes smbl/process/smbl_process_investigate.sp                        -o ../plugins/smbl/process/smbl_process_investigate.smx
+        spcomp -v 1 -iincludes smbl.sp                                                         -o ../plugins/smbl.smx
+        spcomp -v 0 -iincludes smbl/action/common/smbl_action_common_idle.sp                   -o ../plugins/smbl/action/common/smbl_action_common_idle.smx
+        spcomp -v 0 -iincludes smbl/action/common/smbl_action_common_move.sp                   -o ../plugins/smbl/action/common/smbl_action_common_move.smx
+        spcomp -v 0 -iincludes smbl/action/common/smbl_action_common_attack.sp                 -o ../plugins/smbl/action/common/smbl_action_common_attack.smx
+        spcomp -v 0 -iincludes smbl/action/soldier/smbl_action_soldier_attack.sp               -o ../plugins/smbl/action/soldier/smbl_action_soldier_attack.smx
+        spcomp -v 0 -iincludes smbl/action/soldier/smbl_action_soldier_move.sp                 -o ../plugins/smbl/action/soldier/smbl_action_soldier_move.smx
+        spcomp -v 0 -iincludes smbl/action/soldier/move/smbl_action_soldier_move_rocketjump.sp -o ../plugins/smbl/action/soldier/move/smbl_action_soldier_move_rocketjump.smx
+        spcomp -v 0 -iincludes smbl/action/utility/smbl_action_utility.sp                      -o ../plugins/smbl/action/utility/smbl_action_utility.smx
+        spcomp -v 0 -iincludes smbl/controller/all/smbl_controller_all_generic.sp              -o ../plugins/smbl/controller/all/smbl_controller_all_generic.smx
+        spcomp -v 0 -iincludes smbl/controller/soldier/smbl_controller_soldier_trolldier.sp    -o ../plugins/smbl/controller/soldier/smbl_controller_soldier_trolldier.smx
+        spcomp -v 0 -iincludes smbl/director/smbl_director_debug.sp                            -o ../plugins/smbl/director/smbl_director_debug.smx
+        spcomp -v 0 -iincludes smbl/gamemode/smbl_gamemode_mga.sp                              -o ../plugins/smbl/gamemode/smbl_gamemode_mga.smx
+        spcomp -v 0 -iincludes smbl/monitor/smbl_monitor_targetacquisition_fov.sp              -o ../plugins/smbl/monitor/smbl_monitor_targetacquisition_fov.smx
+        spcomp -v 0 -iincludes smbl/navigation/smbl_nav_mesh.sp                                -o ../plugins/smbl/navigation/smbl_nav_mesh.smx
+        spcomp -v 0 -iincludes smbl/navigation/smbl_nav_mesh_editor.sp                         -o ../plugins/smbl/navigation/smbl_nav_mesh_editor.smx
+        spcomp -v 0 -iincludes smbl/observable/smbl_observable_player_events.sp                -o ../plugins/smbl/observable/smbl_observable_player_events.smx
+        spcomp -v 0 -iincludes smbl/process/smbl_process_combat.sp                             -o ../plugins/smbl/process/smbl_process_combat.smx
+        spcomp -v 0 -iincludes smbl/process/smbl_process_idle.sp                               -o ../plugins/smbl/process/smbl_process_idle.smx
+        spcomp -v 0 -iincludes smbl/process/smbl_process_investigate.sp                        -o ../plugins/smbl/process/smbl_process_investigate.smx
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
