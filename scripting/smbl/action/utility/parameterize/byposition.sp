@@ -98,7 +98,7 @@ OpRet Parameterize_ByPosition_Init(Bot mBot, Operation mOp, KeyValues hInitParam
 		if (mOperation) {
 			hInitParams.JumpToKey(sOperationIdx);
 
-			CopyKeyValues(hInitParams, mOperation.hInitParams);
+			mOperation.hInitParams.Merge(hInitParams);
 
 			hInitParams.GoBack();
 		}
@@ -110,19 +110,4 @@ OpRet Parameterize_ByPosition_Init(Bot mBot, Operation mOp, KeyValues hInitParam
 	hInitParams.Rewind();
 
 	return OpRet_Continue;
-}
-
-void CopyKeyValues(KeyValues hKVSource, KeyValues hKVDestination) {
-	// Cannot do this directly, unlike ImportFromString this does not merge but replaces the whole subtree instead
-// 	hKVDestination.Import(hKVSource);
-
-	// Waiting for PR of this new function with the correct behavior: https://github.com/alliedmodders/sourcemod/pull/2184
-// 	hKVDestination.Merge(hKVSource);
-
-	// Temporary workaround
-	char sBuffer[4096];
-	hKVSource.ExportToString(sBuffer, sizeof(sBuffer));
-	hKVDestination.ImportFromString(sBuffer);
-
-	hKVDestination.SetSectionName(OP_INIT_PARAM);
 }
