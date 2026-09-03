@@ -99,7 +99,7 @@ OpRet AirStrafe_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList h
 	Sequence eSeq;
 	eSeq.fnRun = AirStrafe_StraightHeading;
 	eSeq.iSeq = view_as<Seq>(0);
-	FormatEx(eSeq.sIdentifier, sizeof(Sequence::sIdentifier), "Straight_Heading");
+	eSeq.sIdentifier = "Straight_Heading";
 	hSequences.PushArray(eSeq);
 
 	return OpRet_Continue;
