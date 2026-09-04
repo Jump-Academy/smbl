@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "AI"
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.1.1"
 
 #include <sourcemod>
 #include <smlib/entities>
@@ -17,7 +17,6 @@
 #define RANDOM_ROAM3D_INTERVAL	1.0
 
 #define RANDOM_ROAM_MIN_DISTANCE	1000.0
-#define RANDOM_ROAM3D_MIN_DISTANCE	2000.0
 
 #define NODE_PROXIMITY	500.0
 
@@ -240,8 +239,11 @@ float CostFunc_Move3D(NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode mNod
 	float vecOrigin[3];
 	Entity_GetAbsOrigin(iEntity, vecOrigin);
 
-	float fDistance = GetVectorDistance(vecOrigin, vecPosB);
-	if (fDistance > RANDOM_ROAM3D_MIN_DISTANCE && GetURandomFloat() > 0.9) {
+	float vecDiff[3];
+	SubtractVectors(vecOrigin, vecPosB, vecDiff);
+
+	float fDist2D = SquareRoot(vecDiff[0]*vecDiff[0] + vecDiff[1]*vecDiff[1]);
+	if (fDist2D > RANDOM_ROAM_MIN_DISTANCE && GetURandomFloat() > 0.9) {
 		bMarkGoalNode = true;
 	}
 
