@@ -50,7 +50,11 @@ ConVar g_hCVGravity;
 
 #include "rocketjump/wall_climb.sp"
 #include "rocketjump/wall_climb_adjacent.sp"
+#include "rocketjump/wall_climb_pull.sp"
+#include "rocketjump/wall_climb_up.sp"
+
 #include "rocketjump/wall_pogo.sp"
+
 #include "rocketjump/ground_shot.sp"
 #include "rocketjump/ground_shot_back.sp"
 #include "rocketjump/ground_shot_down.sp"
@@ -80,10 +84,21 @@ public void OnMapStart() {
 // Library forwards
 
 public void SMBL_OnStart() {
+	// Auto dispatch wrapper
 	Operation.Register("Soldier.Move.RocketJump.Wall.Climb")
 		.Init(Wall_Climb_Init)
 		.Suspend(UnsupportedFunction)
-		.Cleanup(Wall_Climb_Cleanup);
+		.SubOps(true);
+
+	Operation.Register("Soldier.Move.RocketJump.Wall.Climb.Pull")
+		.Init(Wall_Climb_Pull_Init)
+		.Cleanup(Wall_Climb_Pull_Cleanup);
+
+	Operation.Register("Soldier.Move.RocketJump.Wall.Climb.Up")
+		.Init(Wall_Climb_Up_Init)
+		.PreRun(Wall_Climb_Up_PreRun)
+		.Cleanup(Wall_Climb_Up_Cleanup)
+		.SubOps(true);
 
 	Operation.Register("Soldier.Move.RocketJump.Wall.Climb.Adjacent")
 		.Init(Wall_Climb_Adjacent_Init)
