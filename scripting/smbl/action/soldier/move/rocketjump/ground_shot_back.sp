@@ -367,7 +367,8 @@ static int FindParameters(float vecOrigin[3], float vecDest[3], float &fPitchAng
 	vecTraceStartPos[2] += 0.75*vecMaxs[2];
 
 #if defined DEBUG
-	float fTimestamp = GetEngineTime();
+	Profiler hProfiler = new Profiler();
+	hProfiler.Start();
 #endif
 
 	float fBestPitchAng;
@@ -449,7 +450,9 @@ static int FindParameters(float vecOrigin[3], float vecDest[3], float &fPitchAng
 	}
 
 #if defined DEBUG
-	PrintToServer("Traces completed in %.3f ms", 1000*(GetEngineTime()-fTimestamp));
+	hProfiler.Stop();
+	PrintToServer("Traces completed in %.3f ms", 1000*hProfiler.Time);
+	delete hProfiler;
 #endif
 
 	if (!fBestPitchAng) {

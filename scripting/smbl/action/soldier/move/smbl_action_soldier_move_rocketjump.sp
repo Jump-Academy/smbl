@@ -11,6 +11,10 @@
 #include <smbl>
 #include <smbl/nav_mesh>
 
+#if defined DEBUG
+	#include <profiler>
+#endif
+
 #define NODE_PROXIMITY	500.0
 
 #define WALL_MIN_REACH	50.0
@@ -23,9 +27,11 @@
 #define PID_VFAST_PREC	{0.50,	0.000,	0.00}
 #define PID_SNAP		{1.00,	0.000,	0.00}
 
-#define COLOR_RED		{255, 0, 0, 255}
-#define COLOR_YELLOW	{255, 255, 0, 255}
-#define COLOR_MAGENTA	{255, 0, 255, 255}
+#define COLOR_RED		{255,   0,   0, 255}
+#define COLOR_YELLOW	{255, 255,   0, 255}
+#define COLOR_GREEN		{0,   255,   0, 255}
+#define COLOR_BLUE		{0,     0, 255, 255}
+#define COLOR_MAGENTA	{255,   0, 255, 255}
 
 #define DEFAULT_GOAL_PROXIMITY	50.0
 #define CLOSE_RANGE_CUTOFF		300.0
