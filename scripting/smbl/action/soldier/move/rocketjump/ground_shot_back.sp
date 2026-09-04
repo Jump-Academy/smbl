@@ -410,8 +410,8 @@ static int FindParameters(float vecOrigin[3], float vecDest[3], float &fPitchAng
 		vecTraceRocketAng[0] = fTestPitchAng;
 		vecTraceRocketAng[1] = NormalizeAngle(vecAng[1] + 180.0 + GetYawAngleCompensation(fTestPitchAng));
 
-		float vecFwd[3], vecRight[3], vecUp[3];
-		GetAngleVectors(vecTraceRocketAng, vecFwd, vecRight, vecUp);
+		float vecRight[3];
+		GetAngleVectors(vecTraceRocketAng, NULL_VECTOR, vecRight, NULL_VECTOR);
 
 		ScaleVector(vecRight, 12.0);
 
