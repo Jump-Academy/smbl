@@ -114,6 +114,13 @@ OpRet RunOperations(Bot mBot, Operation mOp) {
 					return InternalAbort(mBot, mOp, eOp, "initialization function call returned error code %d", iCallError);
 				}
 
+				if (eOp.hSubOpRefs && eOp.hSubOpRefs.Length) {
+					Operation mSubOp = view_as<OpRef>(eOp.hSubOpRefs.Get(eOp.hSubOpRefs.Length-1)).ToOperation();
+					if (mSubOp) {
+						eOp.iLastSubOp = mSubOp.iOp;
+					}
+				}
+
 				switch (iReturn) {
 					case OpRet_Bypass: {
 						return OpRet_Continue;
