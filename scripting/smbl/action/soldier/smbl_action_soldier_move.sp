@@ -248,6 +248,23 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 			continue;
 		}
 
+		if (iPrevExitAttachmentFlags & FL_ATTACH_WALL) {
+			float vecNodeOrigin[3];
+			mNode.GetOrigin(vecNodeOrigin);
+
+			KeyValues hWallClimbInitParams;
+			Operation mSubOp = Operation.Instance("Soldier.Move.RocketJump.Wall.Climb", hWallClimbInitParams, iOp++);
+			hWallClimbInitParams.SetNum("nav_mesh", view_as<int>(mNavMesh));
+			hWallClimbInitParams.SetNum("start_node", view_as<int>(mPrevNode));
+			hWallClimbInitParams.SetNum("end_node", view_as<int>(mNode));
+			mOp.AddSubOperation(mSubOp);
+
+			mPrevNode = mNode;
+			iPrevExitAttachmentFlags = iExitAttachmentFlags;
+			vecPrevFocalPoint = vecFocalPoint;
+			continue;
+		}
+
 		// Try rocket jumping ahead of path as far as possible
 
 		int iRocketJumpDestinationIdx = -1;
@@ -332,7 +349,6 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 			hRocketJumpInitParams.SetNum("decelerate", true);
 			hRocketJumpInitParams.SetNum("airbrake", true);
 			hRocketJumpInitParams.SetFloat("goal_proximity", 100.0);
-
 			mOp.AddSubOperation(mRocketJumpSubOp);
 			hParameterizeSubOpInitParams.SetNum("2", view_as<int>(mRocketJumpSubOp));
 
@@ -365,9 +381,7 @@ OpRet Move_Init(Bot mBot, Operation mOp, KeyValues hInitParams, ArrayList hSeque
 	if (bBeelineEnd) {
 		KeyValues hWalkInitParams;
 		Operation mSubOp = Operation.Instance("Common.Move.Walk.Beeline", hWalkInitParams, iOp++);
-
 		hWalkInitParams.SetVector("destination", vecEnd);
-
 		mOp.AddSubOperation(mSubOp);
 	}
 
@@ -389,7 +403,8 @@ public float CostFunc_Move(NavMesh mNavMesh, NavNode mNodeA, int iEdgeA, NavNode
 		return POSITIVE_INFINITY;
 	}
 
-	if (iAttachmentFlags & (FL_ATTACH_AIR_GAP | FL_ATTACH_WALL)) {
+// 	if (iAttachmentFlags & (FL_ATTACH_AIR_GAP | FL_ATTACH_WALL)) {
+	if (iAttachmentFlags & (FL_ATTACH_AIR_GAP)) {
 		if (mNavMesh.LookupCache("Soldier.Move.RocketJump.Ground.Shot", mNodeA, mNodeB)) {
 			return 0.75*GetVectorDistance2D(vecPosA, vecPosB);
 		}
