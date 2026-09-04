@@ -3,7 +3,7 @@
 // #define DEBUG
 
 #define PLUGIN_AUTHOR "AI"
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.2.0"
 
 #include <smlib/entities>
 #include <smlib/math>
