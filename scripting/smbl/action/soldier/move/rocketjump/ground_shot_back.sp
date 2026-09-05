@@ -331,28 +331,29 @@ static int FindParameters(float vecOrigin[3], float vecDest[3], float &fPitchAng
 		ShiftGroundPosition2D(vecOrigin, vecDir, MIN_START_SPEED, GROUND_START_TIME, vecWalkEndPos);
 
 		float vecTraceStartPos[3];
-		vecTraceStartPos[0] = vecOrigin[0];
-		vecTraceStartPos[1] = vecOrigin[1];
-		vecTraceStartPos[2] = vecOrigin[2] + 50.0;
+		vecTraceStartPos[0] = vecWalkEndPos[0];
+		vecTraceStartPos[1] = vecWalkEndPos[1];
+		vecTraceStartPos[2] = vecWalkEndPos[2] + 50.0;
 
-		float vecTraceAng[3];
-		SubtractVectors(vecWalkEndPos, vecTraceStartPos, vecTraceAng);
-		GetVectorAngles(vecTraceAng, vecTraceAng);
-
-		TR_TraceRayFilter(vecTraceStartPos, vecTraceAng, MASK_SHOT_HULL, RayType_Infinite, TraceEntityFilter_Environment);
+		TR_TraceRayFilter(vecTraceStartPos, {90.0, 0.0, 0.0}, MASK_SHOT_HULL, RayType_Infinite, TraceEntityFilter_Environment);
 		if (TR_DidHit()) {
 			float vecTraceEndPos[3];
 			TR_GetEndPosition(vecTraceEndPos);
 
-			float fTraceDistance = GetVectorDistance(vecTraceStartPos, vecTraceEndPos);
-			float fExpectedDistance = GetVectorDistance(vecTraceStartPos, vecWalkEndPos);
+			float vecDropDiff[3];
+			SubtractVectors(vecOrigin, vecTraceEndPos, vecDropDiff);
 
-			if (FloatAbs(fTraceDistance-fExpectedDistance) > 10.0) {
+			if (vecDropDiff[2] > 0) {
+				float fDropDist2D = SquareRoot(vecDropDiff[0]*vecDropDiff[0] + vecDropDiff[1]*vecDropDiff[1]);
+				float fDropAng = ArcTangent2(vecDropDiff[2], fDropDist2D);
+
+				if (RadToDeg(fDropAng) > 48.0) {
 #if defined DEBUG
-				PrintToServer("Bot is too close to a ledge. Trying standing launch instead.");
+					PrintToServer("Ground is too steep. Trying standing launch instead.");
 #endif
-				bStandingLaunch = true;
-				vecWalkEndPos = vecOrigin;
+					bStandingLaunch = true;
+					vecWalkEndPos = vecOrigin;
+				}
 			}
 		}
 	}
