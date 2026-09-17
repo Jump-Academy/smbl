@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "AI"
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.1.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -842,6 +842,15 @@ void GetAttachmentColor(int iAttachmentFlags, int iColor[4]) {
 void SnapToGrid(float vecPos[3], const int iSnapInterval) {
 	vecPos[0] = float(RoundToNearest(vecPos[0] / iSnapInterval) * iSnapInterval);
 	vecPos[1] = float(RoundToNearest(vecPos[1] / iSnapInterval) * iSnapInterval);
+
+	float vecTraceStart[3];
+	vecTraceStart[0] = vecPos[0];
+	vecTraceStart[1] = vecPos[1];
+	vecTraceStart[2] = vecPos[2] + 10.0;
+
+	float vecTraceEnd[3];
+	GetTraceEndpoint(vecTraceStart, {90.0, 00.0, 0.0}, vecTraceEnd);
+	vecPos[2] = vecTraceEnd[2];
 }
 
 float GetVectorLength2D(float vecVector[3]) {
